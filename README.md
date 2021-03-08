@@ -3,7 +3,7 @@ First Kaggle Competition for VinBigData
 Goal:
 - 
 
-- Rebuild the ResNet 50 model ( backbone for the detectron2 model )
+- Rebuild the ResNet 50 model ( backbone for the detectron2 model ) [ Currently on this step ]
 - Transfer learning to rebuilt ResNet model
 - Train new ResNet model on Check X-rays for detecting abnormal x-rays
 - Export weights
