@@ -1,0 +1,5 @@
+torch==1.8.0
+tqdm==4.59.0
+pandas==1.2.3
+opencv-python==4.5.1.48
+scikit-image==0.18.1

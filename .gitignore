@@ -1,0 +1,7 @@
+.idea
+models/*
+data/*
+caches/*
+venv
+
+*.pyc
