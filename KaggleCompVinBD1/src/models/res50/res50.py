@@ -1,40 +1,35 @@
 import torch
 from torch import nn
-from torch.nn import Module
-import torch.nn.functional as F
+from torchvision.models import resnet50
 
 from src.models.model import BaseModel
-from src.models.components.ResNet import IdentityBlock
 
 
 class Res50(BaseModel):
     def __init__(self):
         super().__init__(model_name="Res50")
 
-        self.C1 = nn.Conv2d(1, 64, (1,1), (1,1))
-        self.block = IdentityBlock(64, 64, 256)
-        self.FC1 = nn.Linear(4209, 1000)
-        self.FC2 = nn.Linear(1000, 2)
+        self.model = nn.Sequential(*(list(resnet50(True).children()))[:-1])
+
+        self.fc = nn.Linear(2048, 2)
+        self.lsoft = nn.LogSoftmax(dim=-1)
 
     def forward(self, x):
-        batch_size = int(x.shape[0])
+        batch_size = x.shape[0]
         x = torch.unsqueeze(x, -1)
         x = x.float()
 
         x = x.permute(0, 3, 1, 2)
 
-        x = self.C1(x)
-        x = self.block(x)
+        # So... this sucks... may have to find a pretrained resnet on grayscale or do it myself which seems unreasonable
+        x = x.repeat(1, 3, 1, 1)
+
+        x = self.model(x)
 
         x = x.view([batch_size, -1])
+        x = self.fc(x)
+        predictions = self.lsoft(x)
 
-        x = self.FC1(x)
-        x = F.relu(x)
-        x = F.dropout(x, training=self.training)
-
-        x = self.FC2(x)
-
-        predictions = self.LSoftmax(x)
         return predictions
 
 
@@ -44,6 +39,9 @@ if __name__ == "__main__":
     from src.training_tasks.tasks.AbnormalClassificationTask import AbnormalClassificationTask
 
     model = Res50()
+
+    print(model)
+
     dataloader = TrainingAbnormalDataLoader()
     dataloader.load_records()
 

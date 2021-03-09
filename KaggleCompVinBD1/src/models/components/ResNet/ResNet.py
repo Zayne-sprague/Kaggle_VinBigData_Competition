@@ -2,10 +2,11 @@ import torch
 from torch import nn
 from torch.nn import Module
 
+
 #TODO - make this for any size of conv blocks, and fix the downsampling issue
 # https://arxiv.org/pdf/1512.03385.pdf
-class IdentityBlock(Module):
-    def __init__(self, F1, F2, F3, kernel_size=(3,3), stride=(1,1)):
+class ResnetBottleneckBlock(Module):
+    def __init__(self, F1, F2, F3, identity_map=None, kernel_size=(3,3), stride=(1,1)):
         super().__init__()
 
         self.C1 = nn.Conv2d(F1, F2, kernel_size=(1,1), stride=(1,1), bias=False)
@@ -19,6 +20,7 @@ class IdentityBlock(Module):
         self.C3 = nn.Conv2d(F3, F3, kernel_size=(1,1), stride=(1,1), bias=False)
         self.C3_BN = nn.BatchNorm2d(F3)
 
+        self.identity_map = identity_map
 
         self.post_block_act = nn.ReLU(inplace=True)
 
@@ -37,13 +39,11 @@ class IdentityBlock(Module):
         x = self.C3(x)
         x = self.C3_BN(x)
 
+        if self.identity_map:
+            residual = self.identity_map(residual)
+
         x += residual
 
         x = self.post_block_act(x)
 
         return x
-
-
-class ResNet(Module):
-    def __init__(self):
-        super().__init__()

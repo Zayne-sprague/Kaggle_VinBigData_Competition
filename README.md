@@ -3,13 +3,15 @@ First Kaggle Competition for VinBigData
 Goal:
 - 
 
-- Rebuild the ResNet 50 model ( backbone for the detectron2 model ) [ Currently on this step ]
-- Transfer learning to rebuilt ResNet model
-- Train new ResNet model on Check X-rays for detecting abnormal x-rays
-- Export weights
-- Load weights into detectron2 res-50-fpn model
-- Use weights as backbone for the actual bounding box classifier
-- Ensemble the two models, custom resnet 50 model and detectron to classify if an abnormality is present then find the bounding box for said abnormality respectively
+- [x] Rebuild the ResNet 50 model ( backbone for the detectron2 model )
+    - [ ] Find 256px Grayscale pretrained resnet-50 weights, someone has to have it [ Currently on this step ]
+    - [ ] Visualize training to make sure its working correctly
+- [ ] Transfer learning to rebuilt ResNet model
+- [ ] Train new ResNet model on Check X-rays for detecting abnormal x-rays
+- [ ] Export weights
+- [ ] Load weights into detectron2 res-50-fpn model
+- [ ] Use weights as backbone for the actual bounding box classifier
+- [ ] Ensemble the two models, custom resnet 50 model and detectron to classify if an abnormality is present then find the bounding box for said abnormality respectively
 
 Hypothesis:
 - 
@@ -24,8 +26,9 @@ By training the backbone to detect abnormalities we can get two benefits
 Nice to haves (things in the backlog*)
 - 
 
-- Better Documentation 
-- Better Logging
-- Visualizations of training/validation trade offs
-- ResNet / RetinaNet implementations that scale
-- CUDA implementation with env files
+- [ ] Better Documentation 
+- [ ] Better Logging
+- [ ] Visualizations of training/validation trade offs
+- [ ] ResNet / RetinaNet implementations that scale
+- [ ] CUDA implementation with env files
+- [ ] Finish the custom Resnet model because its cool
