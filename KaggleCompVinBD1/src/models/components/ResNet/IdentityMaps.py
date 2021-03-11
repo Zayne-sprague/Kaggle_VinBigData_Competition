@@ -20,10 +20,8 @@ class ZeroPad(Module):
 
         padding = [0] * ((len(residual.shape) - 1) * 2)
 
-        try:
-            assert self.actual == residual.shape[1]
-        except AssertionError:
-            raise Exception("The residual did not match the dimensions expected")
+        assert self.actual == residual.shape[1], "The residual did not match the dimensions expected"
+
 
         # pad the "back" of the filter maps (maybe this isn't the right thing to do)
         padding[-1] = self.projection - self.actual

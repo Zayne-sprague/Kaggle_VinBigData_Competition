@@ -18,9 +18,14 @@ __NUM_OF_IMGS_WITH_DEBUG__ = 1250
 class TrainingDataLoader(Dataset):
     # Base class for data loaders
 
-    def __init__(self):
-        self.annotation_data: pd.DataFrame = pd.read_csv(TRAINING_ANNOTATION_DATA)
-        self.meta_data: pd.DataFrame = pd.read_csv(TRAIN_META_DATA)
+    def __init__(self, readin_annotation_data=True, readin_meta_data=True):
+        # If you are not reading in the annotation/meta data, you better set it yourself (usually you only wouldn't want
+        # to read in this data if you are testing the implementation of other systems with this class-- i.e. speed)
+        if readin_annotation_data:
+            self.annotation_data: pd.DataFrame = pd.read_csv(TRAINING_ANNOTATION_DATA)
+
+        if readin_meta_data:
+            self.meta_data: pd.DataFrame = pd.read_csv(TRAIN_META_DATA)
 
         self.image_size: int = config.image_size
 
@@ -30,7 +35,7 @@ class TrainingDataLoader(Dataset):
 
         self.debug: bool = config.DEBUG
 
-        if self.debug:
+        if self.debug and readin_meta_data:
             self.meta_data = self.meta_data.iloc[:__NUM_OF_IMGS_WITH_DEBUG__]
 
         self.records = None

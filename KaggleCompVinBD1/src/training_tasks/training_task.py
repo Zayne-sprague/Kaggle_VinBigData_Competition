@@ -9,6 +9,7 @@ from tqdm import tqdm
 from src import training_log
 from src.models.model import BaseModel
 from src.data_loaders.data_loader import TrainingDataLoader
+from src.visualizations.visualization import Visualization
 
 
 class TrainingTask:
@@ -49,12 +50,10 @@ class TrainingTask:
 
         self.__state__: dict = {}
 
+        self.__visualization__: Visualization = Visualization()
+
     def register_training_data(self, data: TrainingDataLoader, train_to_val_split: float = 0.0) -> None:
-        try:
-            assert 0.0 <= train_to_val_split <= 1.0
-        except AssertionError:
-            self.log.error("Please pass in a correct value for train_to_val_split 0 <= x <= 1.0")
-            return
+        assert 0.0 <= train_to_val_split <= 1.0, "Please pass in a correct value for train_to_val_split 0 <= x <= 1.0"
 
         self.training_data_loader = data
 
@@ -67,11 +66,7 @@ class TrainingTask:
             self.val_data = None
 
     def validate(self, model: BaseModel) -> Optional[float]:
-        try:
-            assert self.val_data and len(self.val_data) > 0
-        except AssertionError:
-            self.log.error("Please set the validation dataset of the model before validating")
-            return None
+        assert self.val_data and len(self.val_data) > 0, "Please set the validation dataset of the model before validating"
 
         self.log.info(f'Beginning Evaluation of model')
 
@@ -87,7 +82,7 @@ class TrainingTask:
 
             p_bar.set_description(f'Evaluating: {loss:.2f}')
 
-        self.log.info(f'Ending evaluation of the model. Total loss = {total_loss:.2f}')
+        self.log.info(f'Ending evaluation of the model. Total loss = {total_loss / len(self.val_data):.2f}')
 
         return total_loss / len(self.val_data)
 
@@ -132,11 +127,12 @@ class TrainingTask:
         total_epoch_loss: float = 0.0
         for batch in p_bar:
             loss = self.__inner_training_loop__(model, batch, self.__optimizer__(model), self.__criterion__(model))
+            self.__visualization__.add_data([loss])
             total_epoch_loss += loss
 
             p_bar.set_description(f'Training Epoch {epoch + 1} : Loss {loss:.2f}')
 
-        self.log.info(f'Epoch {epoch + 1} finished with a loss of {total_epoch_loss:.2f}')
+        self.log.info(f'Epoch {epoch + 1} finished with a loss of {total_epoch_loss / len(self.train_data):.2f}')
 
         return total_epoch_loss / len(self.train_data)
 
