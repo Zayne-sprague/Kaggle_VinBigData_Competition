@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 
 from src.models.model import BaseModel
 
@@ -10,11 +11,16 @@ class PseudoModel(BaseModel):
 
         self.num_classes: int = num_classes
 
-        self.fc = torch.nn.Linear(2, self.num_classes)
+        self.fc = torch.nn.Linear(1, self.num_classes)
 
-    def forward(self, x: torch.Tensor):
+        self.criterion = nn.CrossEntropyLoss()
 
-        return torch.rand([x.shape[0], self.num_classes])
+    def forward(self, data: dict):
+
+        return self.loss({'preds': self.fc(torch.unsqueeze(data['image'], 1).float())}, data)
+
+    def loss(self, predictions: dict, data: dict) -> dict:
+        return {'loss': self.criterion(predictions['preds'], data['label'])}
 
 
 if __name__ == "__main__":

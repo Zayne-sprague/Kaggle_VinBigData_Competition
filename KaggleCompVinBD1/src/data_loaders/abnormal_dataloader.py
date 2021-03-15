@@ -10,12 +10,12 @@ class TrainingAbnormalDataLoader(TrainingDataLoader):
     def __init__(self):
         super().__init__()
 
-    def load_records(self, keep_records=False):
-        self.records = self.__load_records__(keep_records)
+    def load_records(self, keep_annotations=False):
+        self.records = self.__load_records__(keep_annotations)
         return self.records
 
     @cache(prefix="abnormal_")
-    def __load_records__(self, keep_records: bool = False):
+    def __load_records__(self, keep_annotations: bool = False):
 
         records = super().__load_records__()
 
@@ -25,7 +25,7 @@ class TrainingAbnormalDataLoader(TrainingDataLoader):
             else:
                 records[idx]['label'] = 1
 
-            if not keep_records:
+            if not keep_annotations:
                 del records[idx]['annotations']
 
         return records

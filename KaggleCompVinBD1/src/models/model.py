@@ -59,3 +59,5 @@ class BaseModel(Module):
 
             return {}
 
+    def loss(self, predictions: dict, data: dict) -> dict:
+        raise NotImplementedError()

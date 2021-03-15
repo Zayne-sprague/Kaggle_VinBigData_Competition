@@ -1,4 +1,4 @@
-from torch.utils.data import Dataset
+from torch.utils.data import IterableDataset
 import torch
 import pandas as pd
 from pathlib import Path
@@ -7,6 +7,7 @@ import cv2
 from skimage import io
 from tqdm import tqdm
 import logging
+from itertools import cycle
 
 from src.utils.paths import TRAINING_ANNOTATION_DATA, TRAIN_META_DATA, CONVERTED_VBD_DICOM_DATA_FOLDER
 from src.utils.cacher import cache
@@ -15,7 +16,9 @@ from src import config, dl_log, Classifications
 __NUM_OF_IMGS_WITH_DEBUG__ = 1250
 
 
-class TrainingDataLoader(Dataset):
+#https://medium.com/speechmatics/how-to-build-a-streaming-dataloader-with-pytorch-a66dd891d9dd
+# TODO implement parallel data loading and re-read ^ (also shuffling would be nice)
+class TrainingDataLoader(IterableDataset):
     # Base class for data loaders
 
     def __init__(self, readin_annotation_data=True, readin_meta_data=True):
@@ -62,6 +65,20 @@ class TrainingDataLoader(Dataset):
         record['image'] = image
 
         return record
+
+
+    def process_data(self, data):
+        for x in data:
+            x['image'] = io.imread(x['file_name'] + '.png')
+            yield x
+
+    def __get_stream__(self, data):
+        return cycle(self.process_data(data))
+
+    def __iter__(self):
+        self.__records_check__()
+
+        return self.__get_stream__(self.records)
 
     def load_records(self):
         self.records = self.__load_records__()

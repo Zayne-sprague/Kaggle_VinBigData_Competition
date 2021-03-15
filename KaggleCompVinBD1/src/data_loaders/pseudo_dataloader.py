@@ -26,7 +26,14 @@ class TrainingPseudoDataloader(TrainingDataLoader):
         # Data that doesn't have to do large image processing, meant for testing other systems.
         record = self.records[idx]
         record['image'] = 0
+        record['label'] = 0
         return record
+
+    def process_data(self, data):
+        for x in data:
+            x['image'] = 0
+            x['label'] = 0
+            yield x
 
     @cache(prefix="pseudo_")
     def __load_records__(self):

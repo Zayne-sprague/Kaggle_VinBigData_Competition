@@ -26,6 +26,10 @@ training_log = logging.getLogger("TRAINING")
 training_log.setLevel(logging.INFO)
 training_log.addHandler(handler)
 
+hooks_log = logging.getLogger("HOOKS")
+hooks_log.setLevel(logging.INFO)
+hooks_log.addHandler(handler)
+
 
 CLASSES = [
     "Aortic enlargement",

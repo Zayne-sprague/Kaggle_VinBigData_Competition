@@ -19,7 +19,11 @@ class SimpleNet(BaseModel):
 
         self.LSoftmax = nn.LogSoftmax(dim=-1)
 
-    def forward(self, x: torch.Tensor):
+        self.criterion = nn.CrossEntropyLoss()
+
+    def forward(self, data: dict) -> dict:
+        x = data['image']
+
         batch_size = int(x.shape[0])
         x = torch.unsqueeze(x, -1)
         x = x.float()
@@ -45,7 +49,13 @@ class SimpleNet(BaseModel):
         x = self.FC2(x)
 
         predictions = self.LSoftmax(x)
-        return predictions
+        return self.loss({"preds": predictions}, data)
+
+    def loss(self, predictions: dict, data: dict) -> dict:
+        predictions: torch.Tensor = predictions['preds']
+        loss = self.criterion(predictions, data['label'])
+        return {'loss': loss}
+
 
 
 if __name__ == "__main__":

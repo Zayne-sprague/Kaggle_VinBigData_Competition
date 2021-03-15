@@ -1,6 +1,7 @@
 import pyqtgraph as pg
 import pyqtgraph.multiprocess as mp
 
+
 # TODO - Flesh this out further.
 class Visualization:
     def __init__(self):
