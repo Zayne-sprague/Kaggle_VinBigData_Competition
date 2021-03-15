@@ -1,5 +1,5 @@
 
-# Following structure found in Detectron2, some modifications and simplifications
+# Following structure found in DetectronModeling, some modifications and simplifications
 # https://github.com/facebookresearch/detectron2/blob/4aca4bdaa9ad48b8e91d7520e0d0815bb8ca0fb1/detectron2/engine/train_loop.py#L18
 class HookBase:
 

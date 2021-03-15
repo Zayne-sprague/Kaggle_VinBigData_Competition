@@ -8,6 +8,7 @@ __CURR_DIR__ = Path(__file__).resolve().parent
 
 CACHE_DIR = __CURR_DIR__ / "../../../caches"
 MODELS_DIR = __CURR_DIR__ / "../../../models"
+DETECTRON_OUTPUT_DIR = __CURR_DIR__ / '../../../detectron_outputs'
 DATA = __CURR_DIR__ / "../../../data"
 
 TRAINING_ANNOTATION_DATA = DATA / "vbd_rawdata/train.csv"

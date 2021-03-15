@@ -4,22 +4,58 @@
 #
 #    pip-compile
 #
---index-url https://copilot-python-dev:howdyhawaiiheckhonda@copilot.jfrog.io/copilot/api/pypi/copilot-python/simple
-
+absl-py==0.12.0
+    # via tensorboard
+cachetools==4.2.1
+    # via google-auth
+certifi==2020.12.5
+    # via requests
+chardet==4.0.0
+    # via requests
+cloudpickle==1.6.0
+    # via detectron2
 cycler==0.10.0
     # via matplotlib
+cython==0.29.22
+    # via pycocotools
 decorator==4.4.2
     # via networkx
+git+https://github.com/facebookresearch/detectron2.git
+    # via -r requirements.in
+future==0.18.2
+    # via detectron2
+fvcore==0.1.3.post20210311
+    # via detectron2
+google-auth-oauthlib==0.4.3
+    # via tensorboard
+google-auth==1.27.1
+    # via
+    #   google-auth-oauthlib
+    #   tensorboard
+grpcio==1.36.1
+    # via tensorboard
+idna==2.10
+    # via requests
 imageio==2.9.0
     # via scikit-image
+iopath==0.1.6
+    # via
+    #   detectron2
+    #   fvcore
 kiwisolver==1.3.1
     # via matplotlib
+markdown==3.3.4
+    # via tensorboard
 matplotlib==3.3.4
-    # via scikit-image
+    # via
+    #   detectron2
+    #   pycocotools
+    #   scikit-image
 networkx==2.5
     # via scikit-image
 numpy==1.20.1
     # via
+    #   fvcore
     #   imageio
     #   matplotlib
     #   opencv-python
@@ -28,21 +64,44 @@ numpy==1.20.1
     #   pywavelets
     #   scikit-image
     #   scipy
+    #   tensorboard
     #   tifffile
     #   torch
     #   torchvision
+oauthlib==3.1.0
+    # via requests-oauthlib
+omegaconf==2.0.6
+    # via detectron2
 opencv-python==4.5.1.48
     # via -r requirements.in
 pandas==1.2.3
     # via -r requirements.in
 pillow==8.1.2
     # via
+    #   detectron2
+    #   fvcore
     #   imageio
     #   matplotlib
     #   scikit-image
     #   torchvision
+portalocker==2.2.1
+    # via iopath
+protobuf==3.15.6
+    # via tensorboard
+pyasn1-modules==0.2.8
+    # via google-auth
+pyasn1==0.4.8
+    # via
+    #   pyasn1-modules
+    #   rsa
+pycocotools==2.0.2
+    # via detectron2
+pydot==1.4.2
+    # via detectron2
 pyparsing==2.4.7
-    # via matplotlib
+    # via
+    #   matplotlib
+    #   pydot
 pyqt5-qt5==5.15.2
     # via pyqt5
 pyqt5-sip==12.8.1
@@ -59,12 +118,46 @@ pytz==2021.1
     # via pandas
 pywavelets==1.1.1
     # via scikit-image
+pywin32==300
+    # via portalocker
+pyyaml==5.4.1
+    # via
+    #   fvcore
+    #   omegaconf
+    #   yacs
+requests-oauthlib==1.3.0
+    # via google-auth-oauthlib
+requests==2.25.1
+    # via
+    #   requests-oauthlib
+    #   tensorboard
+rsa==4.7.2
+    # via google-auth
 scikit-image==0.18.1
     # via -r requirements.in
 scipy==1.6.1
     # via scikit-image
 six==1.15.0
-    # via python-dateutil
+    # via
+    #   absl-py
+    #   cycler
+    #   google-auth
+    #   grpcio
+    #   protobuf
+    #   python-dateutil
+    #   tensorboard
+tabulate==0.8.9
+    # via
+    #   detectron2
+    #   fvcore
+tensorboard-plugin-wit==1.8.0
+    # via tensorboard
+tensorboard==2.4.1
+    # via detectron2
+termcolor==1.1.0
+    # via
+    #   detectron2
+    #   fvcore
 tifffile==2021.3.5
     # via scikit-image
 torch==1.8.0
@@ -74,6 +167,25 @@ torch==1.8.0
 torchvision==0.9.0
     # via -r requirements.in
 tqdm==4.59.0
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   detectron2
+    #   fvcore
+    #   iopath
 typing-extensions==3.7.4.3
-    # via torch
+    # via
+    #   omegaconf
+    #   torch
+urllib3==1.26.3
+    # via requests
+werkzeug==1.0.1
+    # via tensorboard
+wheel==0.36.2
+    # via tensorboard
+yacs==0.1.8
+    # via
+    #   detectron2
+    #   fvcore
+
+# The following packages are considered to be unsafe in a requirements file:
+# setuptools
