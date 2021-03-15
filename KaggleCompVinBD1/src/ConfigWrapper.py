@@ -23,6 +23,8 @@ class ConfigWrapper:
         self.include_healthy_annotations: bool = strtobool(os.environ.get("include_healthy_annotations", False))
         self.include_records_without_annotations: bool = strtobool(os.environ.get("include_records_without_annotations", False))
 
+        self.batch_size: int = int(os.environ.get("batch_size", 16))
+
 
     def __hash__(self):
         return f'{self.DEBUG}{self.image_size}{self.include_healthy_annotations}{self.include_records_without_annotations}'
