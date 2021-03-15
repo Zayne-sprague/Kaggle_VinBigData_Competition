@@ -2,7 +2,9 @@ from src.ConfigWrapper import ConfigWrapper
 
 import logging
 import sys
+import coloredlogs
 from enum import Enum
+
 
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.DEBUG)
@@ -12,23 +14,36 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 log.addHandler(handler)
 
+
+coloredlogs.install(level='INFO', logger=log)
+
 # data loader logging
 dl_log = logging.getLogger("DATA_LOADER")
 dl_log.setLevel(logging.INFO)
 dl_log.addHandler(handler)
+
+coloredlogs.install(level='INFO', logger=dl_log)
 
 # modeling logger
 model_log = logging.getLogger("MODELER")
 model_log.setLevel(logging.INFO)
 model_log.addHandler(handler)
 
+coloredlogs.install(level='INFO', logger=model_log)
+
+
 training_log = logging.getLogger("TRAINING")
 training_log.setLevel(logging.INFO)
 training_log.addHandler(handler)
 
+coloredlogs.install(level='INFO', logger=training_log)
+
+
 hooks_log = logging.getLogger("HOOKS")
 hooks_log.setLevel(logging.INFO)
 hooks_log.addHandler(handler)
+
+coloredlogs.install(level='INFO', logger=hooks_log)
 
 
 CLASSES = [

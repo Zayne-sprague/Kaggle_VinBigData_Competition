@@ -16,6 +16,8 @@ chardet==4.0.0
     # via requests
 cloudpickle==1.6.0
     # via detectron2
+coloredlogs==15.0
+    # via -r requirements.in
 cycler==0.10.0
     # via matplotlib
 cython==0.29.22
@@ -36,6 +38,8 @@ google-auth==1.27.1
     #   tensorboard
 grpcio==1.36.1
     # via tensorboard
+humanfriendly==9.1
+    # via coloredlogs
 idna==2.10
     # via requests
 imageio==2.9.0

@@ -16,7 +16,7 @@ class EventStorage:
         self.events: dict = {}
         self.ln_schema: dict = {}
 
-        self.max_len: int = 10
+        self.max_len: int = 1000
 
     def put_item(self, name: str, value: any) -> None:
         if name not in self.events:

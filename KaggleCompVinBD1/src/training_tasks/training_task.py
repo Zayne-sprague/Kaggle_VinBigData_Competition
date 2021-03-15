@@ -1,15 +1,13 @@
 from torch import optim
-from torch.nn import Module
-from torch.utils.data import random_split, DataLoader
+from torch.utils.data import DataLoader
 
 from typing import List, Optional
 import logging
-from tqdm import tqdm
+import time
 
 from src import training_log, config
 from src.models.model import BaseModel
 from src.data_loaders.data_loader import TrainingDataLoader
-from src.visualizations.visualization import Visualization
 
 from src.utils.hooks import HookBase
 import weakref
@@ -52,10 +50,13 @@ class TrainingTask:
         self.before_training()
 
         with EventStorage() as self.storage:
-            for i in range(self.iter, self.max_iter):
+            for i in range(self.start_iter, self.max_iter):
                 self.before_iteration()
                 self.step()
                 self.after_iteration()
+
+                self.iter = i+1
+
 
             self.after_training()
 
@@ -95,22 +96,36 @@ class SimpleTrainer(TrainingTask):
 
         self.optimizer: optim.Optimizer = optimizer
 
-    def write_iteration_metrics(self, metrics: dict):
+    def write_iteration_metrics(self, metrics: dict, data_delta: float, inference_delta: float, back_prop_delta:float, step_delta: float):
 
         for key in metrics:
             self.storage.put_item(key, metrics[key].item())
 
+        self.storage.put_item("data_delta", data_delta)
+        self.storage.put_item("inference_delta", inference_delta)
+        self.storage.put_item("back_prop_delta", back_prop_delta)
+        self.storage.put_item("step_delta", step_delta)
+
+
     def step(self):
         assert self.model.training, "Model is in evaluation mode instead of training!"
 
+        data_start = time.perf_counter()
         data = next(self.data)
+        data_delta = time.perf_counter() - data_start
 
+        inf_start = time.perf_counter()
         loss_dict = self.model(data)
+        inf_delta = time.perf_counter() - inf_start
+
         losses = sum(loss_dict.values())
 
         self.optimizer.zero_grad()
+
+        back_prop_start = time.perf_counter()
         losses.backward()
-
-        self.write_iteration_metrics(loss_dict)
-
         self.optimizer.step()
+        back_prop_delta = time.perf_counter() - back_prop_start
+
+        self.write_iteration_metrics(loss_dict, data_delta=data_delta, inference_delta=inf_delta, back_prop_delta=back_prop_delta, step_delta=time.perf_counter() - data_start)
+
