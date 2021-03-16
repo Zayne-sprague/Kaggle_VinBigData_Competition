@@ -36,6 +36,10 @@ class ConfigWrapper:
             log.error("Attempted to utilize a GPU but no GPU or CUDA Driver was found.  Defaulting to CPU")
             self.gpu_count = 0
 
+        if self.use_gpu and self.gpu_count > torch.cuda.device_count():
+            log.warn(f"Attempted to utilize more GPUs than allowed, setting gpu count to {torch.cuda.device_count()}")
+            self.gpu_count = torch.cuda.device_count()
+
         self.devices: List[torch.device]
         if self.use_gpu:
             self.devices = [torch.device(f'cuda:{x}') for x in range(self.gpu_count)]

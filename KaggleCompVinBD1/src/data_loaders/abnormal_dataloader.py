@@ -32,7 +32,11 @@ class TrainingAbnormalDataLoader(TrainingDataLoader):
         self.__records_check__()
 
         total = len(self.records)
+
+        self.load_image_on_get = False
         healthy = len([x for x in self.records if x['label'] == 0])
+        self.load_image_on_get = True
+
         abnormal = total - healthy
 
         return {

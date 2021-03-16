@@ -44,6 +44,8 @@ class TrainingDataLoader(IterableDataset):
 
         self.records = None
 
+        self.load_image_on_get: bool = False
+
     def __records_check__(self):
         if not self.records:
             self.log.error("Attempted to access data loaders records without loading them first!")
@@ -61,9 +63,10 @@ class TrainingDataLoader(IterableDataset):
 
         record = self.records[idx]
 
-        image = io.imread(record['file_name'] + '.png')
+        if self.load_image_on_get:
+            image = io.imread(record['file_name'] + '.png')
 
-        record['image'] = image
+            record['image'] = image
 
         return record
 

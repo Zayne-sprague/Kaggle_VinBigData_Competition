@@ -14,7 +14,7 @@ from src.utils.hooks import HookBase
 import weakref
 
 from src.utils.events import EventStorage
-from src.utils.paths import MODELS_DIR
+from src.training_tasks import BackpropAggregators
 
 
 class TrainingTask:
@@ -46,7 +46,6 @@ class TrainingTask:
 
                 self.iter = i+1
 
-
             self.after_training()
 
     def step(self):
@@ -74,15 +73,22 @@ class TrainingTask:
 
 # Inspired by detectron2s structure.
 class SimpleTrainer(TrainingTask):
-    def __init__(self, model: BaseModel, data: TrainingDataLoader, optimizer: optim.Optimizer):
+    def __init__(self, model: BaseModel, data: TrainingDataLoader, optimizer: optim.Optimizer, backward_agg: BackpropAggregators = BackpropAggregators.IndividualBackprops):
         super().__init__()
 
         batch_size = config.batch_size
 
-        self.model: BaseModel = model
-
         try:
+            if config.use_gpu and config.gpu_count > 1:
+                self.model = DistributedModel(model, device_ids=config.devices)
+                self.log.info("Distributing model across GPUs")
+
+                self.log.info(f"Using {config.gpu_count} gpus will split the set batch size ({batch_size}) to a batch size of {int(batch_size / config.gpu_count)} per GPU.")
+            else:
+                self.model: BaseModel = model
+
             self.model.to(config.devices[0])
+
         except Exception as e:
             self.log.critical("Could not export the model to the device")
             raise e
@@ -92,10 +98,17 @@ class SimpleTrainer(TrainingTask):
 
         self.optimizer: optim.Optimizer = optimizer
 
+        self.backward_agg: BackpropAggregators = backward_agg
+
     def write_iteration_metrics(self, metrics: dict, data_delta: float, inference_delta: float, back_prop_delta:float, step_delta: float):
 
         for key in metrics:
-            self.storage.put_item(key, metrics[key].item())
+            dims = metrics[key].shape
+            if len(dims) > 0:
+                item_list = metrics[key].tolist()
+                [self.storage.put_item(key, x) for x in item_list]
+            else:
+                self.storage.put_item(key, metrics[key].item())
 
         self.storage.put_item("data_delta", data_delta)
         self.storage.put_item("inference_delta", inference_delta)
@@ -111,7 +124,7 @@ class SimpleTrainer(TrainingTask):
         for ky, val in data.items():
             # If we can, try to load up the batched data into the device (try to only send what is needed)
             if isinstance(data[ky], torch.Tensor):
-                data[ky].to(config.devices[0])
+                data[ky] = data[ky].to(config.devices[0])
 
         data_delta = time.perf_counter() - data_start
 
@@ -124,9 +137,30 @@ class SimpleTrainer(TrainingTask):
         self.optimizer.zero_grad()
 
         back_prop_start = time.perf_counter()
-        losses.backward()
+
+        if self.backward_agg == BackpropAggregators.IndividualBackprops:
+            losses.backward(torch.ones_like(losses))
+        elif self.backward_agg == BackpropAggregators.MeanLosses:
+            losses.mean().backward()
+        else:
+            losses.backward()
+
         self.optimizer.step()
         back_prop_delta = time.perf_counter() - back_prop_start
 
         self.write_iteration_metrics(loss_dict, data_delta=data_delta, inference_delta=inf_delta, back_prop_delta=back_prop_delta, step_delta=time.perf_counter() - data_start)
 
+
+class DistributedModel(torch.nn.DataParallel):
+    """
+    Wrapper for DataParellel so you can reference values from the base model object even though we are distributing it
+    """
+    def __init__(self, module: torch.nn.Module, device_ids):
+        super().__init__(module, device_ids=device_ids)
+
+    def __getattr__(self, name):
+        #https://discuss.pytorch.org/t/access-att-of-model-wrapped-within-torch-nn-dataparallel-maximum-recursion-depth-exceeded/46975
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return getattr(self.module, name)
