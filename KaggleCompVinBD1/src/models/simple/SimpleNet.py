@@ -19,7 +19,7 @@ class SimpleNet(BaseModel):
 
         self.LSoftmax = nn.LogSoftmax(dim=-1)
 
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.NLLLoss()
 
     def forward(self, data: dict) -> dict:
         x = data['image']
@@ -49,7 +49,13 @@ class SimpleNet(BaseModel):
         x = self.FC2(x)
 
         predictions = self.LSoftmax(x)
-        return self.loss({"preds": predictions}, data)
+
+        out = {'preds': predictions}
+
+        if self.training:
+            out['losses'] = self.loss(out, data)
+
+        return out
 
     def loss(self, predictions: dict, data: dict) -> dict:
         predictions: torch.Tensor = predictions['preds']

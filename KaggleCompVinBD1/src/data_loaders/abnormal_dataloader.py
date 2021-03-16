@@ -1,4 +1,5 @@
 from tqdm import tqdm
+from tabulate import tabulate
 
 from src.data_loaders.data_loader import TrainingDataLoader
 from src.utils.cacher import cache
@@ -6,9 +7,6 @@ from src import is_record_healthy
 
 
 class TrainingAbnormalDataLoader(TrainingDataLoader):
-
-    def __init__(self):
-        super().__init__()
 
     def load_records(self, keep_annotations=False):
         self.records = self.__load_records__(keep_annotations)
@@ -30,4 +28,23 @@ class TrainingAbnormalDataLoader(TrainingDataLoader):
 
         return records
 
+    def get_metrics(self) -> dict:
+        self.__records_check__()
+
+        total = len(self.records)
+        healthy = len([x for x in self.records if x['label'] == 0])
+        abnormal = total - healthy
+
+        return {
+            'total': total,
+            'healthy': healthy,
+            'abnormal': abnormal
+        }
+
+    def display_metrics(self, metrics: dict) -> None:
+        table = []
+        for ky in metrics:
+            table.append([ky, metrics[ky]])
+
+        self.log.info(f'\n-- Abnormal Dataloader Metrics --\n{tabulate(table, headers=["Type", "Number Of Examples"])}')
 

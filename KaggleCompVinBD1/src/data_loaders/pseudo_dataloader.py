@@ -1,5 +1,6 @@
 import torch
 import random
+from tabulate import tabulate
 
 from src.data_loaders.data_loader import TrainingDataLoader
 from src.utils.cacher import cache
@@ -40,5 +41,21 @@ class TrainingPseudoDataloader(TrainingDataLoader):
         records = [{'id': x, 'label': random.randint(0, self.num_classes)} for x in range(0, self.num_of_records)]
         self.records = records
         return records
+
+    def get_metrics(self) -> dict:
+        self.__records_check__()
+
+        total = len(self.records)
+
+        return {
+            'total': total,
+        }
+
+    def display_metrics(self, metrics: dict) -> None:
+        table = []
+        for ky in metrics:
+            table.append([ky, metrics[ky]])
+
+        self.log.info(f'\n-- Pseudo Dataloader Metrics --\n{tabulate(table, headers=["Type", "Number Of Examples"])}')
 
 

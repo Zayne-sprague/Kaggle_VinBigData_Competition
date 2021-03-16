@@ -28,19 +28,6 @@ class TrainingTask:
         self.hooks: List[HookBase] = []
         self.storage: Optional[EventStorage] = None
 
-    # def register_training_data(self, data: TrainingDataLoader, train_to_val_split: float = 0.0) -> None:
-    #     assert 0.0 <= train_to_val_split <= 1.0, "Please pass in a correct value for train_to_val_split 0 <= x <= 1.0"
-    #
-    #     self.training_data_loader = data
-    #
-    #     if train_to_val_split > 0.0:
-    #         train_size = int(len(self.training_data_loader) * train_to_val_split)
-    #         val_size = int(len(self.training_data_loader) - train_size)
-    #         self.train_data, self.val_data = random_split(self.training_data_loader, [train_size, val_size])
-    #     else:
-    #         self.train_data = self.training_data_loader
-    #         self.val_data = None
-
     def begin_or_resume(self, resume=True):
         if resume:
             self.__resume__()
@@ -92,6 +79,7 @@ class SimpleTrainer(TrainingTask):
 
         self.model: BaseModel = model
 
+        data.display_metrics(data.get_metrics())
         self.data = iter(DataLoader(data, batch_size=batch_size, num_workers=4))
 
         self.optimizer: optim.Optimizer = optimizer
@@ -115,7 +103,7 @@ class SimpleTrainer(TrainingTask):
         data_delta = time.perf_counter() - data_start
 
         inf_start = time.perf_counter()
-        loss_dict = self.model(data)
+        loss_dict = self.model(data)['losses']
         inf_delta = time.perf_counter() - inf_start
 
         losses = sum(loss_dict.values())

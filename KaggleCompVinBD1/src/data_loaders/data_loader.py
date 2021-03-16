@@ -1,7 +1,8 @@
-from torch.utils.data import IterableDataset
+from torch.utils.data import IterableDataset, random_split, Subset
 import torch
 import pandas as pd
 from pathlib import Path
+from typing import List
 
 import cv2
 from skimage import io
@@ -138,6 +139,33 @@ class TrainingDataLoader(IterableDataset):
         self.records = records
         return records
 
+    #TODO - fix the type pass in... maybe let the callee handle it after all?
+    def partition_data(self, partitions: List[float], type):
+        self.__records_check__()
+        assert all([0.0 <= x <= 1.0 for x in partitions]), "Please pass in values for the partitions between 0 and 1"
+        assert sum(partitions) >= 1.0 - .005  # epsilon
+
+        partition_counts = [int(x * len(self.records)) for x in partitions]
+        partition_counts[-1] += int(len(self.records) - sum(partition_counts))
+
+        parts = random_split(self, partition_counts)
+        for part in parts:
+            dl = type(readin_annotation_data=False, readin_meta_data=False)
+            dl.records = part
+            dl.meta_data = self.meta_data
+            dl.annotation_data = self.annotation_data
+
+            # Really we could be returning them all at once-- but just incase we ever want to make this parallel
+            # it makes since to just yield and do list(partition_data([0.25, 0.75])) if you want it all in one go
+            # You can also just do a, b, c, d = partition_data([0.25, 0.25, 0.25, 0.25]) which is cool!
+            yield dl
+
+    def get_metrics(self) -> dict:
+        raise NotImplementedError()
+
+    def display_metrics(self, metrics: dict) -> None:
+        raise NotImplementedError()
+
 
 class TestingDataLoader:
     pass
@@ -150,3 +178,4 @@ def get_img_dims(
     h, w, c = image.shape
 
     return h, w, c
+

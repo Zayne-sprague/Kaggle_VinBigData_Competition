@@ -99,7 +99,7 @@ class PeriodicStepFuncHook(PeriodicStepHook):
 
 class CheckpointHook(PeriodicStepFuncHook):
 
-    def __init__(self, name: str, frequency: int):
+    def __init__(self, frequency: int, name: str):
         super().__init__(frequency, self.checkpoint, after_training=True)
         self.__static_name__ = name
 
@@ -130,7 +130,6 @@ class TrainingVisualizationHook(PeriodicStepHook):
         self.failed = False
         self.since_failure = 0
 
-
     @periodic
     def after_iteration(self):
         loss_item: List[float] = self.trainer.storage.find_item("loss", self.frequency)
@@ -144,7 +143,7 @@ class TrainingVisualizationHook(PeriodicStepHook):
         # if no failure state is seen for the next 10 calls to the hook, turn the freq mult. down by 2 until its 1 again
         # if the freq mult. reaches 1 again, the failed flag is set to false and this won't run
         if not success:
-            if self.freq_mult == 10:
+            if self.freq_mult >= 32: # 2 ^ 5
                 self.frequency = 999_999_999 # never run again
 
             self.frequency *= 2
@@ -163,10 +162,6 @@ class TrainingVisualizationHook(PeriodicStepHook):
 
                 if self.freq_mult == 1:
                     self.failed = False
-
-
-
-
 
 
 class LogTrainingLoss(PeriodicStepHook):

@@ -1,78 +1,54 @@
 import torch
-from torch import nn
-from torch.nn import Module
-from torch.utils.data import random_split, Dataset, DataLoader
-from torch import optim
+from torch.utils.data import DataLoader
+
+from tqdm import tqdm
+from tabulate import tabulate
 
 from src.models.model import BaseModel
-from src.training_tasks.training_task import TrainingTask
+from src.data_loaders.abnormal_dataloader import TrainingAbnormalDataLoader
+from src.training_tasks.training_task import SimpleTrainer
 
 
-class AbnormalClassificationTask(TrainingTask):
+class AbnormalClassificationTask(SimpleTrainer):
 
-    def __init__(
-            self,
-            task_name: str,
+    def validation(self, dataloader: TrainingAbnormalDataLoader, model: BaseModel) -> dict:
+        model.eval()
 
-            learning_rate: float = 0.0001,
+        self.log.info("Beginning Validation")
 
-            epochs: int = 10,
-            batch_size: int = 16,
+        dataloader.display_metrics(dataloader.get_metrics())
 
-            checkpoint_frequency: int = 0,
-            validation_frequency: int = 0,
-    ):
-        super().__init__(
-            task_name=task_name,
+        data = iter(DataLoader(dataloader, batch_size=16, num_workers=4))
+        total = len(dataloader) // 16 + 1
 
-            learning_rate=learning_rate,
+        # idx 0 == correct, idx 1 == incorrect
+        stats = {
+            'healthy': [0, 0],
+            'abnormal': [0, 0]
+        }
 
-            epochs=epochs,
-            batch_size=batch_size,
+        labels = ['healthy', 'abnormal']
 
-            checkpoint_frequency=checkpoint_frequency,
-            validation_frequency=validation_frequency
-        )
+        for _, i in tqdm(enumerate(range(total)), total=len(range(total)), desc="Validating the model"):
+            batch = next(data)
 
-    def __checkpoint__(self, model: BaseModel) -> None:
-        model.checkpoint(name=self.task_name)
+            y: torch.Tensor = batch['label']
 
-    def __resume__(self, model: BaseModel) -> None:
-        state = model.load(name=self.task_name)
+            predictions = torch.argmax(model(batch)['preds'], 1)
 
-        # TODO - implement this further so that the model picks up where it left off.
-        # self.__state__['epochs'] = state['epochs']
+            for idx, prediction in enumerate(predictions.tolist()):
+                if prediction == y[idx]:
+                    stats[labels[y[idx]]][0] += 1
+                else:
+                    stats[labels[y[idx]]][1] += 1
 
-    def __inner_training_loop__(self, model: Module, batch: dict, optimizer: optim.Optimizer, criterion: Module, *args, **kwargs) -> float:
-        x: torch.Tensor = batch['image']
-        y: torch.Tensor = batch['label']
+        table = []
+        for stat in stats:
+            table.append([stat, stats[stat][0], stats[stat][1]])
 
-        optimizer.zero_grad()
-        predictions = model(x)
+        self.log.info(f'\n-- Validation Report --\n{tabulate(table, headers=["Type","Correct","Incorrect"])}')
 
-        loss = criterion(predictions, y)
+        model.train()
 
-        loss.backward()
-        optimizer.step()
+        return stats
 
-        return loss.item()
-
-    def __inner_validation_loop__(self, model: Module, batch: dict, optimizer: optim.Optimizer, criterion: Module, *args, **kwargs) -> float:
-        x: torch.Tensor = batch['image']
-        y: torch.Tensor = batch['label']
-
-        predictions = model(x)
-
-        loss = criterion(predictions, y).item()
-
-        return loss
-
-    def __optimizer__(self, model: BaseModel) -> optim.Optimizer:
-        if not self.optimizer:
-            self.optimizer = optim.Adam(model.parameters(), self.learning_rate)
-        return self.optimizer
-
-    def __criterion__(self, model: BaseModel) -> Module:
-        if not self.criterion:
-            self.criterion = nn.NLLLoss()
-        return self.criterion

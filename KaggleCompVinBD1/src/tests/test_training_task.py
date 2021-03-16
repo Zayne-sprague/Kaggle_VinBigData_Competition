@@ -3,6 +3,7 @@ from torch.optim import Adam
 from unittest import TestCase
 
 from src.training_tasks.training_task import TrainingTask, SimpleTrainer
+from src.training_tasks.tasks.AbnormalClassificationTask import AbnormalClassificationTask
 
 from src.utils.hooks import StepTimer, PeriodicStepFuncHook, CheckpointHook, TrainingVisualizationHook, LogTrainingLoss
 
@@ -27,18 +28,21 @@ class TestTrainingTask(TestCase):
         dataloader = TrainingAbnormalDataLoader()
         dataloader.load_records(keep_annotations=False)
 
-        task = SimpleTrainer(model, dataloader, Adam(model.parameters(), lr=0.0001))
+        train_dl, val_dl = dataloader.partition_data([0.75, 0.25], TrainingAbnormalDataLoader)
+
+        task = AbnormalClassificationTask(model, train_dl, Adam(model.parameters(), lr=0.0001))
         task.max_iter = 100_000_000
         # task = TrainingTask()
 
-        val_hook = PeriodicStepFuncHook(1, validation_tester)
-        checkpoint_hook = CheckpointHook("checkpoint_test", 1)
+        val_hook = PeriodicStepFuncHook(40, lambda: task.validation(val_dl, model))
+        checkpoint_hook = CheckpointHook(1, "test")
 
-        task.register_hook(StepTimer())
-        # task.register_hook(val_hook)
-        # task.register_hook(checkpoint_hook)
-        task.register_hook(TrainingVisualizationHook(batch=False))
         task.register_hook(LogTrainingLoss())
+        task.register_hook(StepTimer())
+        task.register_hook(val_hook)
+        # task.register_hook(checkpoint_hook)
+        # task.register_hook(TrainingVisualizationHook(batch=False))
+
         task.begin_or_resume()
 
         assert 1 == 1
