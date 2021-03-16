@@ -13,6 +13,7 @@ from src.utils.hooks import HookBase
 import weakref
 
 from src.utils.events import EventStorage
+from src.utils.paths import MODELS_DIR
 
 
 class TrainingTask:
@@ -30,7 +31,7 @@ class TrainingTask:
 
     def begin_or_resume(self, resume=True):
         if resume:
-            self.__resume__()
+            self.resume()
         self.train()
 
     def train(self) -> None:
@@ -50,8 +51,8 @@ class TrainingTask:
     def step(self):
         pass
 
-    def __resume__(self) -> None:
-        pass
+    def resume(self) -> None:
+        [x.on_resume() for x in self.hooks]
 
     def register_hook(self, hook: HookBase):
         hook.trainer = weakref.proxy(self)

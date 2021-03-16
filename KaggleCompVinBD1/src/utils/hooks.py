@@ -28,6 +28,9 @@ class HookBase:
     def after_iteration(self):
         pass
 
+    def on_resume(self):
+        pass
+
 
 class StepTimer(HookBase):
 
@@ -56,7 +59,7 @@ def periodic(f):
     def decor(self):
         assert isinstance(self, PeriodicStepHook), "can only use the periodic decorators n periodic hooks"
 
-        if self.trainer.iter > 0 and self.trainer.iter % self.frequency == 0:
+        if self.trainer.iter > self.trainer.start_iter and self.trainer.iter % self.frequency == 0:
             return f(self)
         return None
 
@@ -117,6 +120,14 @@ class CheckpointHook(PeriodicStepFuncHook):
     def name(self):
         # Overwrite this if you want it to be a name that can change based on iterations or something
         return self.__static_name__
+
+    def on_resume(self):
+        assert self.trainer.__getattribute__('model') is not None, 'trainer has no model to checkpoint'
+
+        model: BaseModel = self.trainer.model
+        state = model.load(name=self.name)
+
+        return state
 
 
 class TrainingVisualizationHook(PeriodicStepHook):
