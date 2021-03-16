@@ -1,3 +1,7 @@
+import torch
+
+from typing import List
+
 import os
 from distutils.util import strtobool
 
@@ -25,6 +29,21 @@ class ConfigWrapper:
 
         self.batch_size: int = int(os.environ.get("batch_size", 16))
 
+        self.gpu_count: int = int(os.environ.get("GPU_COUNT", 0))
+        self.use_gpu: bool = self.gpu_count > 0 and torch.cuda.is_available()
+
+        if self.gpu_count > 0 and not self.use_gpu:
+            log.error("Attempted to utilize a GPU but no GPU or CUDA Driver was found.  Defaulting to CPU")
+            self.gpu_count = 0
+
+        self.devices: List[torch.device]
+        if self.use_gpu:
+            self.devices = [torch.device(f'cuda:{x}') for x in range(self.gpu_count)]
+        else:
+            self.devices = [torch.device('cpu')]
+
+        if self.use_gpu:
+            torch.cuda.set_device(0)
 
     def __hash__(self):
         return f'{self.DEBUG}{self.image_size}{self.include_healthy_annotations}{self.include_records_without_annotations}'

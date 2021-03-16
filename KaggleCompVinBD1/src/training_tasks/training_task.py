@@ -1,3 +1,4 @@
+import torch
 from torch import optim
 from torch.utils.data import DataLoader
 
@@ -80,6 +81,12 @@ class SimpleTrainer(TrainingTask):
 
         self.model: BaseModel = model
 
+        try:
+            self.model.to(config.devices[0])
+        except Exception as e:
+            self.log.critical("Could not export the model to the device")
+            raise e
+
         data.display_metrics(data.get_metrics())
         self.data = iter(DataLoader(data, batch_size=batch_size, num_workers=4))
 
@@ -100,7 +107,12 @@ class SimpleTrainer(TrainingTask):
         assert self.model.training, "Model is in evaluation mode instead of training!"
 
         data_start = time.perf_counter()
-        data = next(self.data)
+        data: dict = next(self.data)
+        for ky, val in data.items():
+            # If we can, try to load up the batched data into the device (try to only send what is needed)
+            if isinstance(data[ky], torch.Tensor):
+                data[ky].to(config.devices[0])
+
         data_delta = time.perf_counter() - data_start
 
         inf_start = time.perf_counter()
