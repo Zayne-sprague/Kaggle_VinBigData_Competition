@@ -8,11 +8,8 @@ Goal:
     - [x] Visualize training to make sure its working correctly 
       - [x] Add hooks to training tasks for visualizations
 - [ ] Train ResNet model [ Currently Working on This ]
-- [ ] Transfer learning to rebuilt ResNet model
-- [ ] Train new ResNet model on Check X-rays for detecting abnormal x-rays
-- [ ] Export weights
-- [ ] Load weights into detectron2 res-50-fpn model
-- [ ] Use weights as backbone for the actual bounding box classifier
+- [ ] Load weights into detectron2 res-50-fpn model and train (might use my model over detectrons)
+- [ ] Create ResNet50 FPN model w/ classifiers per class (weights from detectron)
 - [ ] Ensemble the two models, custom resnet 50 model and detectron to classify if an abnormality is present then find the bounding box for said abnormality respectively
 
 Hypothesis:
