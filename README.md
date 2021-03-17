@@ -30,7 +30,7 @@ Nice to haves (things in the backlog*)
 
 - [ ] Better Documentation 
 - [ ] Better Logging
-- [ ] Visualizations of training/validation trade offs
-- [ ] ResNet / RetinaNet implementations that scale
-- [ ] CUDA implementation with env files
+- [x] Visualizations of training/validation trade offs
+- [x] ResNet / RetinaNet implementations that scale
+- [x] CUDA implementation with env files
 - [ ] Finish the custom Resnet model because its cool
