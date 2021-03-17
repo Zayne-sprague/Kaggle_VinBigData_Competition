@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from detectron2.utils.visualizer import Visualizer
 from detectron2.data import DatasetCatalog, MetadataCatalog
 
-from detectron_modeling.data_loaders.detectron_abnormal_dataset import DetectronTrainingAbnormalDataSet
+from detectron_modeling.data.detectron_abnormal_dataset import DetectronTrainingAbnormalDataSet
 
 
 class TestDetectronTrainingAbnormalDataSet(TestCase):

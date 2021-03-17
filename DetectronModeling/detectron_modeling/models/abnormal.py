@@ -2,10 +2,11 @@ from detectron2.engine import DefaultTrainer
 from detectron2.config import get_cfg
 from detectron2 import model_zoo
 from detectron2.evaluation import COCOEvaluator
+from detectron2.modeling import build_model
 import os
 
 from src.utils.paths import DETECTRON_OUTPUT_DIR, DATA
-from detectron_modeling.data_set.detectron_abnormal_dataset import DetectronTrainingAbnormalDataSet
+from detectron_modeling.data.detectron_abnormal_dataset import DetectronTrainingAbnormalDataSet
 
 
 class MyTrainer(DefaultTrainer):

@@ -3,7 +3,7 @@ from detectron2.data import MetadataCatalog
 
 from tqdm import tqdm
 
-from detectron_modeling.data_loaders.detectron_data_set import DetectronTrainingDataSet
+from detectron_modeling.data.detectron_data_set import DetectronTrainingDataSet
 from src.utils.cacher import cache
 from src import is_record_healthy
 

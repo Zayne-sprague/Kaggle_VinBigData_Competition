@@ -7,8 +7,8 @@ Goal:
     - [x] Find 256px Grayscale pretrained resnet-50 weights, someone has to have it
     - [x] Visualize training to make sure its working correctly 
       - [x] Add hooks to training tasks for visualizations
-- [ ] Train ResNet model [ Currently Working on This ]
-- [ ] Load weights into detectron2 res-50-fpn model and train (might use my model over detectrons)
+- [x] Train ResNet model 
+- [ ] Load weights into detectron2 res-50-fpn model and train (might use my model over detectrons) [ Currently Working on This ]
 - [ ] Create ResNet50 FPN model w/ classifiers per class (weights from detectron)
 - [ ] Ensemble the two models, custom resnet 50 model and detectron to classify if an abnormality is present then find the bounding box for said abnormality respectively
 
