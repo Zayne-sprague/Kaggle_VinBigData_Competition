@@ -1,9 +1,9 @@
 from detectron2.data import DatasetCatalog
 
-from src.data_loaders.data_loader import TrainingDataLoader
+from src.data.data_set import TrainingDataSet
 
 
-class DetectronTrainingDataLoader(TrainingDataLoader):
+class DetectronTrainingDataSet(TrainingDataSet):
 
     def __init__(self, name: str, readin_annotation_data=True, readin_meta_data=True):
         super().__init__(readin_annotation_data=readin_annotation_data, readin_meta_data=readin_meta_data)

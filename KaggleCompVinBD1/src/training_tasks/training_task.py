@@ -8,14 +8,14 @@ import time
 
 from src import training_log, config
 from src.models.model import BaseModel
-from src.data_loaders.data_loader import TrainingDataLoader
+from src.data.data_set import TrainingDataSet
 
 from src.utils.hooks import HookBase
 import weakref
 
 from src.utils.events import EventStorage
 from src.training_tasks import BackpropAggregators
-
+from src.data_augs.mix_up import MixUpImage
 
 class TrainingTask:
 
@@ -51,12 +51,12 @@ class TrainingTask:
     def step(self):
         pass
 
-    def resume(self) -> None:
-        [x.on_resume() for x in self.hooks]
-
     def register_hook(self, hook: HookBase):
         hook.trainer = weakref.proxy(self)
         self.hooks.append(hook)
+
+    def resume(self) -> None:
+        [x.on_resume() for x in self.hooks]
 
     def before_training(self):
         [x.before_training() for x in self.hooks]
@@ -73,7 +73,7 @@ class TrainingTask:
 
 # Inspired by detectron2s structure.
 class SimpleTrainer(TrainingTask):
-    def __init__(self, model: BaseModel, data: TrainingDataLoader, optimizer: optim.Optimizer, backward_agg: BackpropAggregators = BackpropAggregators.IndividualBackprops):
+    def __init__(self, model: BaseModel, data: TrainingDataSet, optimizer: optim.Optimizer, backward_agg: BackpropAggregators = BackpropAggregators.IndividualBackprops):
         super().__init__()
 
         batch_size = config.batch_size
@@ -115,7 +115,6 @@ class SimpleTrainer(TrainingTask):
         self.storage.put_item("back_prop_delta", back_prop_delta)
         self.storage.put_item("step_delta", step_delta)
 
-
     def step(self):
         assert self.model.training, "Model is in evaluation mode instead of training!"
 
@@ -125,6 +124,10 @@ class SimpleTrainer(TrainingTask):
             # If we can, try to load up the batched data into the device (try to only send what is needed)
             if isinstance(data[ky], torch.Tensor):
                 data[ky] = data[ky].to(config.devices[0])
+
+        # TODO - make this an augmenter class, where you register augmenters.
+        # Sucks that pytorch doesn't have something similar to this out of the box (augs by batch rather than by ind. samples)
+        data = MixUpImage()(data)
 
         data_delta = time.perf_counter() - data_start
 

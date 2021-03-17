@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+from src.losses.NLLLossOHE import NLLLossOHE
 
 from src.models.model import BaseModel
 
@@ -19,7 +20,7 @@ class SimpleNet(BaseModel):
 
         self.LSoftmax = nn.LogSoftmax(dim=-1)
 
-        self.criterion = nn.NLLLoss()
+        self.criterion = NLLLossOHE()
 
     def forward(self, data: dict) -> dict:
         x = data['image']
@@ -65,11 +66,11 @@ class SimpleNet(BaseModel):
 
 
 if __name__ == "__main__":
-    from src.data_loaders.abnormal_dataloader import TrainingAbnormalDataLoader
+    from src.data.abnormal_dataset import TrainingAbnormalDataSet
     from src.training_tasks.tasks.AbnormalClassificationTask import AbnormalClassificationTask
 
     model = SimpleNet()
-    dataloader = TrainingAbnormalDataLoader()
+    dataloader = TrainingAbnormalDataSet()
     dataloader.load_records()
 
     training_task = AbnormalClassificationTask("abnormal_classification_task", checkpoint_frequency=1, validation_frequency=1)

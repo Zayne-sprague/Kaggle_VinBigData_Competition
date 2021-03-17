@@ -1,8 +1,11 @@
 from torch.utils.data import IterableDataset, random_split, Subset
 import torch
 import pandas as pd
+import numpy as np
 from pathlib import Path
 from typing import List
+import weakref
+
 
 import cv2
 from skimage import io
@@ -19,7 +22,7 @@ __NUM_OF_IMGS_WITH_DEBUG__ = 1250
 
 #https://medium.com/speechmatics/how-to-build-a-streaming-dataloader-with-pytorch-a66dd891d9dd
 # TODO implement parallel data loading and re-read ^ (also shuffling would be nice)
-class TrainingDataLoader(IterableDataset):
+class TrainingDataSet(IterableDataset):
     # Base class for data loaders
 
     def __init__(self, readin_annotation_data=True, readin_meta_data=True):
@@ -27,9 +30,13 @@ class TrainingDataLoader(IterableDataset):
         # to read in this data if you are testing the implementation of other systems with this class-- i.e. speed)
         if readin_annotation_data:
             self.annotation_data: pd.DataFrame = pd.read_csv(TRAINING_ANNOTATION_DATA)
+        else:
+            self.annotation_data = None
 
         if readin_meta_data:
             self.meta_data: pd.DataFrame = pd.read_csv(TRAIN_META_DATA)
+        else:
+            self.meta_data = None
 
         self.image_size: int = config.image_size
 
@@ -44,7 +51,7 @@ class TrainingDataLoader(IterableDataset):
 
         self.records = None
 
-        self.load_image_on_get: bool = False
+        self.stats = {}
 
     def __records_check__(self):
         if not self.records:
@@ -63,17 +70,23 @@ class TrainingDataLoader(IterableDataset):
 
         record = self.records[idx]
 
-        if self.load_image_on_get:
+        record['label'] = np.array(record['label'])
+
+        if 'filename' in record:
             image = io.imread(record['file_name'] + '.png')
 
             record['image'] = image
+        else:
+            record['image'] = 0
 
         return record
 
 
     def process_data(self, data):
         for x in data:
-            x['image'] = io.imread(x['file_name'] + '.png')
+            if 'file_name' in x:
+                x['image'] = io.imread(x['file_name'] + '.png')
+
             yield x
 
     def __get_stream__(self, data):
@@ -157,7 +170,6 @@ class TrainingDataLoader(IterableDataset):
             dl.records = part
             dl.meta_data = self.meta_data
             dl.annotation_data = self.annotation_data
-
             # Really we could be returning them all at once-- but just incase we ever want to make this parallel
             # it makes since to just yield and do list(partition_data([0.25, 0.75])) if you want it all in one go
             # You can also just do a, b, c, d = partition_data([0.25, 0.25, 0.25, 0.25]) which is cool!

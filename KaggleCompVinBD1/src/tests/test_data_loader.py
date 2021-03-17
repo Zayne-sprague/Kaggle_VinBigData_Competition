@@ -1,12 +1,12 @@
 from unittest import TestCase
 
-from src.data_loaders.data_loader import TrainingDataLoader
+from src.data.data_set import TrainingDataSet
 
 
-class TestTrainingDataLoader(TestCase):
+class TestTrainingDataSet(TestCase):
     def test_load_records(self):
-        data_loader = TrainingDataLoader()
+        data_set = TrainingDataSet()
 
-        records = data_loader.load_records()
+        records = data_set.load_records()
 
         assert len(records) > 0

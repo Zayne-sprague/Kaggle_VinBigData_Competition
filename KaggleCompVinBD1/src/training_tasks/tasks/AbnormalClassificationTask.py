@@ -6,13 +6,13 @@ from tabulate import tabulate
 
 from src import config
 from src.models.model import BaseModel
-from src.data_loaders.abnormal_dataloader import TrainingAbnormalDataLoader
+from src.data.abnormal_dataset import TrainingAbnormalDataSet
 from src.training_tasks.training_task import SimpleTrainer
 
 
 class AbnormalClassificationTask(SimpleTrainer):
 
-    def validation(self, dataloader: TrainingAbnormalDataLoader, model: BaseModel) -> dict:
+    def validation(self, dataloader: TrainingAbnormalDataSet, model: BaseModel) -> dict:
         model.eval()
 
         self.log.info("Beginning Validation")

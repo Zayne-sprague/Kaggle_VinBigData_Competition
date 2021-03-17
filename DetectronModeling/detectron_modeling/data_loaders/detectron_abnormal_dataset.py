@@ -3,12 +3,12 @@ from detectron2.data import MetadataCatalog
 
 from tqdm import tqdm
 
-from detectron_modeling.data_loaders.detectron_data_loader import DetectronTrainingDataLoader
+from detectron_modeling.data_loaders.detectron_data_set import DetectronTrainingDataSet
 from src.utils.cacher import cache
 from src import is_record_healthy
 
 
-class DetectronTrainingAbnormalDataLoader(DetectronTrainingDataLoader):
+class DetectronTrainingAbnormalDataSet(DetectronTrainingDataSet):
 
     def load_records(self):
         self.records = self.__load_records__()

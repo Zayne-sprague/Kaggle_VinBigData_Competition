@@ -3,6 +3,7 @@ from torch import nn
 from torchvision.models import resnet50
 
 from src.models.model import BaseModel
+from src.losses.NLLLossOHE import NLLLossOHE
 from src.utils.hooks import CheckpointHook
 
 
@@ -15,7 +16,7 @@ class Res50(BaseModel):
         self.fc = nn.Linear(2048, 2)
         self.lsoft = nn.LogSoftmax(dim=-1)
 
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = NLLLossOHE()
 
     def forward(self, data: dict) -> dict:
         x = data['image']
@@ -77,7 +78,7 @@ class ResnetCheckpointHook(CheckpointHook):
 
 
 if __name__ == "__main__":
-    from src.data_loaders.abnormal_dataloader import TrainingAbnormalDataLoader
+    from src.data.abnormal_dataset import TrainingAbnormalDataSet
     from src.training_tasks.tasks.AbnormalClassificationTask import AbnormalClassificationTask
     from src.utils.hooks import StepTimer, PeriodicStepFuncHook, TrainingVisualizationHook, \
         LogTrainingLoss
@@ -87,10 +88,10 @@ if __name__ == "__main__":
 
     model = Res50()
 
-    dataloader = TrainingAbnormalDataLoader()
+    dataloader = TrainingAbnormalDataSet()
     dataloader.load_records(keep_annotations=False)
 
-    train_dl, val_dl = dataloader.partition_data([0.75, 0.25], TrainingAbnormalDataLoader)
+    train_dl, val_dl = dataloader.partition_data([0.75, 0.25], TrainingAbnormalDataSet)
 
     task = AbnormalClassificationTask(model, train_dl, optim.Adam(model.parameters(), lr=0.0001), backward_agg=BackpropAggregators.MeanLosses)
     task.max_iter = 2500

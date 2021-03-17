@@ -1,15 +1,19 @@
 from tqdm import tqdm
 from tabulate import tabulate
 
-from src.data_loaders.data_loader import TrainingDataLoader
+from src.data.data_set import TrainingDataSet
 from src.utils.cacher import cache
 from src import is_record_healthy
 
 
-class TrainingAbnormalDataLoader(TrainingDataLoader):
+class TrainingAbnormalDataSet(TrainingDataSet):
 
     def load_records(self, keep_annotations=False):
-        self.records = self.__load_records__(keep_annotations)
+        records = self.__load_records__(keep_annotations)
+
+        self.stats = self.build_metrics(records)
+        self.records = records
+
         return self.records
 
     @cache(prefix="abnormal_")
@@ -17,25 +21,29 @@ class TrainingAbnormalDataLoader(TrainingDataLoader):
 
         records = super().__load_records__()
 
+        healthy = 0
+        abnormal = 0
+        total = 0
+
         for idx, record in tqdm(enumerate(records), total=len(records)):
             if is_record_healthy(record):
-                records[idx]['label'] = 0
+                records[idx]['label'] = [1, 0]
+                healthy += 1
             else:
-                records[idx]['label'] = 1
+                records[idx]['label'] = [0, 1]
+                abnormal += 1
+            total += 1
 
             if not keep_annotations:
                 del records[idx]['annotations']
 
         return records
 
-    def get_metrics(self) -> dict:
-        self.__records_check__()
+    def build_metrics(self, records):
 
-        total = len(self.records)
+        total = len(records)
 
-        self.load_image_on_get = False
-        healthy = len([x for x in self.records if x['label'] == 0])
-        self.load_image_on_get = True
+        healthy = len([x for x in records if x['label'][0] == 1])
 
         abnormal = total - healthy
 
@@ -45,10 +53,15 @@ class TrainingAbnormalDataLoader(TrainingDataLoader):
             'abnormal': abnormal
         }
 
+    def get_metrics(self) -> dict:
+        self.stats = self.build_metrics(self.records)
+        return self.stats
+
+
     def display_metrics(self, metrics: dict) -> None:
         table = []
         for ky in metrics:
             table.append([ky, metrics[ky]])
 
-        self.log.info(f'\n-- Abnormal Dataloader Metrics --\n{tabulate(table, headers=["Type", "Number Of Examples"])}')
+        self.log.info(f'\n-- Abnormal DataSet Metrics --\n{tabulate(table, headers=["Type", "Number Of Examples"])}')
 

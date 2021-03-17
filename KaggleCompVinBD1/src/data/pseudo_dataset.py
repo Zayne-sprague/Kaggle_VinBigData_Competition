@@ -2,11 +2,11 @@ import torch
 import random
 from tabulate import tabulate
 
-from src.data_loaders.data_loader import TrainingDataLoader
+from src.data.data_set import TrainingDataSet
 from src.utils.cacher import cache
 
 
-class TrainingPseudoDataloader(TrainingDataLoader):
+class TrainingPseudoDataSet(TrainingDataSet):
 
     def __init__(self, num_classes: int = 2, num_of_records: int = 10000):
         super().__init__(readin_annotation_data=False, readin_meta_data=False)
@@ -27,18 +27,18 @@ class TrainingPseudoDataloader(TrainingDataLoader):
         # Data that doesn't have to do large image processing, meant for testing other systems.
         record = self.records[idx]
         record['image'] = 0
-        record['label'] = 0
+        record['label'] = [1, 0]
         return record
 
     def process_data(self, data):
         for x in data:
             x['image'] = 0
-            x['label'] = 0
+            x['label'] = [1, 0]
             yield x
 
     @cache(prefix="pseudo_")
     def __load_records__(self):
-        records = [{'id': x, 'label': random.randint(0, self.num_classes)} for x in range(0, self.num_of_records)]
+        records = [{'id': x, 'label': [1, 0]} for x in range(0, self.num_of_records)]
         self.records = records
         return records
 

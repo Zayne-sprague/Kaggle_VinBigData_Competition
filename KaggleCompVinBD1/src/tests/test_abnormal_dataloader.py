@@ -1,12 +1,12 @@
 from unittest import TestCase
 from torch.utils.data import DataLoader
 
-from src.data_loaders.abnormal_dataloader import TrainingAbnormalDataLoader
+from src.data.abnormal_dataset import TrainingAbnormalDataSet
 
 
-class TestTrainingAbnormalDataLoader(TestCase):
+class TestTrainingAbnormalDataSet(TestCase):
     def test_load_records(self):
-        data_loader = TrainingAbnormalDataLoader()
+        data_loader = TrainingAbnormalDataSet()
 
         records = data_loader.load_records()
 

@@ -17,18 +17,21 @@ class PseudoModel(BaseModel):
 
     def forward(self, data: dict):
 
-        return self.loss({'preds': self.fc(torch.unsqueeze(data['image'], 1).float())}, data)
+        state = {'preds': self.fc(torch.unsqueeze(data['image'], 1).float())}
+        losses = self.loss(state, data)
+        state['losses'] = losses
+        return state
 
     def loss(self, predictions: dict, data: dict) -> dict:
         return {'loss': self.criterion(predictions['preds'], data['label'])}
 
 
 if __name__ == "__main__":
-    from src.data_loaders.pseudo_dataloader import TrainingPseudoDataloader
+    from src.data.pseudo_dataset import TrainingPseudoDataSet
     from src.training_tasks.tasks.PseudoTask import PseduoTask
 
     model = PseudoModel()
-    dataloader = TrainingPseudoDataloader()
+    dataloader = TrainingPseudoDataSet()
     dataloader.load_records()
 
     training_task = PseduoTask("pseudo_classification_task")

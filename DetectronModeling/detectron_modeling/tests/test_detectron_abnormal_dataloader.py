@@ -7,16 +7,16 @@ from torch.utils.data import DataLoader
 from detectron2.utils.visualizer import Visualizer
 from detectron2.data import DatasetCatalog, MetadataCatalog
 
-from detectron_modeling.data_loaders.detectron_abnormal_dataloader import DetectronTrainingAbnormalDataLoader
+from detectron_modeling.data_loaders.detectron_abnormal_dataset import DetectronTrainingAbnormalDataSet
 
 
-class TestDetectronTrainingAbnormalDataLoader(TestCase):
+class TestDetectronTrainingAbnormalDataSet(TestCase):
     def test_load_records(self):
-        data_loader = DetectronTrainingAbnormalDataLoader("training_data")
+        data_set = DetectronTrainingAbnormalDataSet("training_data")
 
-        records = data_loader.load_records()
-        data_loader.register_records()
-        data_loader.register_metadata()
+        records = data_set.load_records()
+        data_set.register_records()
+        data_set.register_metadata()
 
         data = DatasetCatalog.get("training_data")
         metadata = MetadataCatalog.get("training_data")

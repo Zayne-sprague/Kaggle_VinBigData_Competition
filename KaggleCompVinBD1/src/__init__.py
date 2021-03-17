@@ -18,7 +18,7 @@ log.addHandler(handler)
 coloredlogs.install(level='INFO', logger=log)
 
 # data loader logging
-dl_log = logging.getLogger("DATA_LOADER")
+dl_log = logging.getLogger("DATA_SET")
 dl_log.setLevel(logging.INFO)
 dl_log.addHandler(handler)
 

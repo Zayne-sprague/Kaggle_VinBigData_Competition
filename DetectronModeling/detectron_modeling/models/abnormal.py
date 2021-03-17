@@ -5,7 +5,7 @@ from detectron2.evaluation import COCOEvaluator
 import os
 
 from src.utils.paths import DETECTRON_OUTPUT_DIR, DATA
-from detectron_modeling.data_loaders.detectron_abnormal_dataloader import DetectronTrainingAbnormalDataLoader
+from detectron_modeling.data_set.detectron_abnormal_dataset import DetectronTrainingAbnormalDataSet
 
 
 class MyTrainer(DefaultTrainer):
@@ -16,10 +16,10 @@ class MyTrainer(DefaultTrainer):
         return COCOEvaluator(dataset_name, cfg, True, output_folder)
 
 def main():
-    data_loader = DetectronTrainingAbnormalDataLoader("training_data")
-    data_loader.load_records()
-    data_loader.register_records()
-    data_loader.register_metadata()
+    data_set = DetectronTrainingAbnormalDataSet("training_data")
+    data_set.load_records()
+    data_set.register_records()
+    data_set.register_metadata()
 
     output_path = str(DETECTRON_OUTPUT_DIR / 'abnormal')
     trained_weights = str(DATA / 'vbd_r50fpn3x_512px/model_final.pth')
