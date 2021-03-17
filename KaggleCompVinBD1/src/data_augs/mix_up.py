@@ -5,6 +5,9 @@ from typing import List
 import cv2
 from shapely.geometry import Polygon
 
+from src import log
+
+
 # https://arxiv.org/pdf/1710.09412.pdf
 class MixUpImage:
 
@@ -43,6 +46,8 @@ class MixUpImage:
     def __call__(self, sample):
         return self.__handle_transform__(sample)
 
+
+# TODO - harder to mix up annotations, might need to add enforcers to make sure the mixup is actually useful
 class MixUpImageWithAnnotations:
 
     def __handle_transform__(self, sample) -> dict:
@@ -50,7 +55,7 @@ class MixUpImageWithAnnotations:
         # TODO - No need for a loop, need some fancy matrix algebra since they are already tensors :)
         ln = len(sample['image'])
         for idx in range(ln):
-            if random.random() > 0.5:
+            if random.random() > -0.5:
                 idx2 = random.randint(0, ln-1)
 
                 # TODO - check to see if we really need to clone... is this really effecting the records object from the dataset class?
@@ -67,7 +72,7 @@ class MixUpImageWithAnnotations:
 
                 for idx1, (box1, label1) in enumerate(zip(l1['boxes'], l1['labels'])):
                     for _, (box2, label2) in enumerate(zip(l2['boxes'], l2['labels'])):
-                        if overlap(box1, box2):
+                        if overlap(box1, box2) or True:
                             sample['annotations'][idx]['labels'][idx1] = lam * label1 + (1 - lam) * label2
 
 
@@ -76,7 +81,11 @@ class MixUpImageWithAnnotations:
     def __call__(self, sample):
         return self.__handle_transform__(sample)
 
-def overlap(rect1,rect2):
+def overlap(rect1,rect2) -> bool:
     p1 = Polygon([(rect1[0],rect1[1]), (rect1[1],rect1[1]),(rect1[2],rect1[3]),(rect1[2],rect1[1])])
     p2 = Polygon([(rect2[0],rect2[1]), (rect2[1],rect2[1]),(rect2[2],rect2[3]),(rect2[2],rect2[1])])
-    return(p1.intersects(p2))
+    try:
+        return(p1.intersects(p2))
+    except Exception as e:
+        log.critical(f'ERROR IN MIXUP: {e}')
+        return False

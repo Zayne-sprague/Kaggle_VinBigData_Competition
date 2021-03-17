@@ -76,9 +76,6 @@ class TrainingDataSet(IterableDataset):
         if 'annotations' in record:
             record['annotations'] = {'boxes': np.array(record['annotations']['boxes']), 'labels': np.array(record['annotations']['labels'])}
 
-
-
-
         if 'filename' in record:
             image = io.imread(record['file_name'] + '.png')
 

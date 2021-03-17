@@ -141,6 +141,8 @@ scikit-image==0.18.1
     # via -r requirements.in
 scipy==1.6.1
     # via scikit-image
+shapely==1.7.1
+    # via -r requirements.in
 six==1.15.0
     # via
     #   absl-py

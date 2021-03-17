@@ -179,11 +179,11 @@ def collate_fn(batch):
     image = torch.tensor([item['image'] for item in batch])
 
     if 'label' in batch[0]:
-        label = torch.tensor([item['label'] for item in batch])
+        label = torch.tensor([item['label'] for item in batch], dtype=torch.float)
 
         return {'image': image, 'label': label}
 
     if 'annotations' in batch[0]:
-        annotations = [{'boxes': torch.tensor(x['annotations']['boxes']), 'labels': torch.tensor(x['annotations']['labels'])} for x in batch]
+        annotations = [{'boxes': torch.tensor(x['annotations']['boxes']), 'labels': torch.tensor(x['annotations']['labels'], dtype=torch.float)} for x in batch]
 
         return {'image': image, 'annotations': annotations}

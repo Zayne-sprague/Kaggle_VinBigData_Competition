@@ -2,6 +2,8 @@ import torch
 from torch import nn
 from torchvision.models import resnet50
 from torchvision.models.detection import retinanet_resnet50_fpn
+from torchvision.models.detection.retinanet import RetinaNetHead
+from torchvision.ops import sigmoid_focal_loss
 
 from src.models.model import BaseModel
 from src.losses.NLLLossOHE import NLLLossOHE
@@ -14,7 +16,9 @@ class RetinaNetFPN(BaseModel):
 
         self.model = nn.Sequential(*(list(resnet50(True).children()))[:-1])
         self.a = resnet50(True)
-        self.m = retinanet_resnet50_fpn(True)
+
+        # head = RetinaNetHead()
+        self.m = retinanet_resnet50_fpn(False, num_classes=2)
 
         self.m.backbone.body.layer1 = self.a.layer1
         self.m.backbone.body.layer2 = self.a.layer2
@@ -22,41 +26,15 @@ class RetinaNetFPN(BaseModel):
         self.m.backbone.body.layer4 = self.a.layer4
         # self.m = nn.Sequential(*(list(self.m.children()))[:])
 
+        # Duck patch! worst code I've ever written-- I am so sorry...
+        # TODO - find a better way to do this...
+        self.m.head.classification_head.compute_loss = lambda *args, **kwargs: class_retina_head_loss(self.m.head.classification_head, *args, **kwargs)
+
 
         self.fc = nn.Linear(2048, 2)
         self.lsoft = nn.LogSoftmax(dim=-1)
 
         self.criterion = NLLLossOHE()
-
-    def class_retina_head_loss(self, targets, head_outputs, matched_idxs):
-        # type: (List[Dict[str, Tensor]], Dict[str, Tensor], List[Tensor]) -> Tensor
-        losses = []
-
-        cls_logits = head_outputs['cls_logits']
-
-        for targets_per_image, cls_logits_per_image, matched_idxs_per_image in zip(targets, cls_logits, matched_idxs):
-            # determine only the foreground
-            foreground_idxs_per_image = matched_idxs_per_image >= 0
-            num_foreground = foreground_idxs_per_image.sum()
-
-            # create the target classification
-            gt_classes_target = torch.zeros_like(cls_logits_per_image)
-            gt_classes_target[
-                foreground_idxs_per_image,
-                targets_per_image['labels'][matched_idxs_per_image[foreground_idxs_per_image]]
-            ] = 1.0
-
-            # find indices for which anchors should be ignored
-            valid_idxs_per_image = matched_idxs_per_image != self.BETWEEN_THRESHOLDS
-
-            # compute the classification loss
-            losses.append(sigmoid_focal_loss(
-                cls_logits_per_image[valid_idxs_per_image],
-                gt_classes_target[valid_idxs_per_image],
-                reduction='sum',
-            ) / max(1, num_foreground))
-
-        return _sum(losses) / len(targets)
 
 
     def forward(self, data: dict) -> dict:
@@ -73,18 +51,11 @@ class RetinaNetFPN(BaseModel):
         x = x.repeat(1, 3, 1, 1)
 
         # TODO - we need to remove this to allow for mixup
-        for idx, annotation in enumerate(annotations):
-            annotations[idx]['labels'] = torch.argmax(annotation['labels'], 1)
+        # for idx, annotation in enumerate(annotations):
+        #     annotations[idx]['labels'] = torch.argmax(annotation['labels'], 1)
         x = self.m(x, annotations)
 
-        x = x.view([batch_size, -1])
-        x = self.fc(x)
-        predictions = self.lsoft(x)
-
-        out = {'preds': predictions}
-
-        if self.training:
-            out['losses'] = self.loss(out, data)
+        out = {'losses': x}
 
         return out
 
@@ -118,6 +89,40 @@ class ResnetCheckpointHook(CheckpointHook):
             self.trainer.start_iter = state['iteration']
             self.trainer.iter = state['iteration']
 
+def class_retina_head_loss(self, targets, head_outputs, matched_idxs):
+    def _sum(x):
+        res = x[0]
+        for i in x[1:]:
+            res = res + i
+        return res
+
+    losses = []
+
+    cls_logits = head_outputs['cls_logits']
+
+    for targets_per_image, cls_logits_per_image, matched_idxs_per_image in zip(targets, cls_logits, matched_idxs):
+        # determine only the foreground
+        foreground_idxs_per_image = matched_idxs_per_image >= 0
+        num_foreground = foreground_idxs_per_image.sum()
+
+        # create the target classification
+        gt_classes_target = torch.zeros_like(cls_logits_per_image).float()
+        gt_classes_target[
+            foreground_idxs_per_image,
+
+        ] = targets_per_image['labels'][matched_idxs_per_image[foreground_idxs_per_image]].float()
+
+        # find indices for which anchors should be ignored
+        valid_idxs_per_image = matched_idxs_per_image != self.BETWEEN_THRESHOLDS
+
+        # compute the classification loss
+        losses.append(sigmoid_focal_loss(
+            cls_logits_per_image[valid_idxs_per_image],
+            gt_classes_target[valid_idxs_per_image],
+            reduction='sum',
+        ) / max(1, num_foreground))
+
+    return _sum(losses) / len(targets)
 
 if __name__ == "__main__":
     from src.data.abnormal_dataset import TrainingAbnormalDataSet
