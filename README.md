@@ -5,8 +5,9 @@ Goal:
 
 - [x] Rebuild the ResNet 50 model ( backbone for the detectron2 model )
     - [x] Find 256px Grayscale pretrained resnet-50 weights, someone has to have it
-    - [ ] Visualize training to make sure its working correctly 
-      - [ ] Add hooks to training tasks for visualizations [ Currently Working On This ]
+    - [x] Visualize training to make sure its working correctly 
+      - [x] Add hooks to training tasks for visualizations
+- [ ] Train ResNet model [ Currently Working on This ]
 - [ ] Transfer learning to rebuilt ResNet model
 - [ ] Train new ResNet model on Check X-rays for detecting abnormal x-rays
 - [ ] Export weights
