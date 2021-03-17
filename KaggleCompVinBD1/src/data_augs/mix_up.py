@@ -15,12 +15,13 @@ class MixUpImage:
         for idx in range(ln):
             if random.random() > 0.5:
                 idx2 = random.randint(0, ln-1)
-                im1 = sample['image'][idx]
 
-                im2 = sample['image'][idx2]
+                # TODO - check to see if we really need to clone... is this really effecting the records object from the dataset class?
+                im1 = torch.clone(sample['image'][idx])
+                im2 = torch.clone(sample['image'][idx2])
 
-                l1 = sample['label'][idx]
-                l2 = sample['label'][idx2]
+                l1 = torch.clone(sample['label'][idx])
+                l2 = torch.clone(sample['label'][idx2])
 
                 alpha = 1.0
                 lam = np.random.beta(alpha, alpha)

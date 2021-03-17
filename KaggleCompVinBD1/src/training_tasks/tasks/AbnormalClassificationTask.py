@@ -38,7 +38,7 @@ class AbnormalClassificationTask(SimpleTrainer):
                 if isinstance(batch[ky], torch.Tensor):
                     batch[ky] = batch[ky].to(config.devices[0])
 
-            y: torch.Tensor = batch['label']
+            y: torch.Tensor = torch.argmax(batch['label'], 1)
 
             predictions = torch.argmax(model(batch)['preds'], 1)
 

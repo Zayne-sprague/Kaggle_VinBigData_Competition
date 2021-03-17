@@ -54,9 +54,6 @@ class ResnetCheckpointHook(CheckpointHook):
     def build_state(self) -> dict:
         assert self.trainer.__getattribute__('model') is not None, 'trainer does not have the model to checkpoint'
 
-        model: Res50 = self.trainer.model
-        assert isinstance(model, Res50), 'Model found in trainer is NOT the resnet50 model'
-
         state = {}
 
         optimizer: optim.Optimizer = self.trainer.optimizer
@@ -94,14 +91,14 @@ if __name__ == "__main__":
     train_dl, val_dl = dataloader.partition_data([0.75, 0.25], TrainingAbnormalDataSet)
 
     task = AbnormalClassificationTask(model, train_dl, optim.Adam(model.parameters(), lr=0.0001), backward_agg=BackpropAggregators.MeanLosses)
-    task.max_iter = 2500
+    task.max_iter = 25000
 
-    # val_hook = PeriodicStepFuncHook(250, lambda: task.validation(val_dl, model))
-    # checkpoint_hook = ResnetCheckpointHook(250, "resnet50_test2")
+    val_hook = PeriodicStepFuncHook(5000, lambda: task.validation(val_dl, model))
+    checkpoint_hook = ResnetCheckpointHook(1000, "resnet50_test3")
 
     task.register_hook(LogTrainingLoss())
     task.register_hook(StepTimer())
-    # task.register_hook(val_hook)
-    # task.register_hook(checkpoint_hook)
+    task.register_hook(val_hook)
+    task.register_hook(checkpoint_hook)
 
     task.begin_or_resume()
