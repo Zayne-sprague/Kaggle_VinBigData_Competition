@@ -1,3 +1,5 @@
+import torch
+
 from detectron2.engine import DefaultTrainer
 from detectron2.config import get_cfg
 from detectron2 import model_zoo
@@ -5,7 +7,7 @@ from detectron2.evaluation import COCOEvaluator
 from detectron2.modeling import build_model
 import os
 
-from src.utils.paths import DETECTRON_OUTPUT_DIR, DATA
+from src.utils.paths import DETECTRON_OUTPUT_DIR, DATA, MODELS_DIR
 from detectron_modeling.data.detectron_abnormal_dataset import DetectronTrainingAbnormalDataSet
 
 
@@ -47,9 +49,12 @@ def main():
     # cfg.MODEL.ROI_BOX_HEAD.NAME = "MyOutputLayer"
 
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
+    modelout = build_model(cfg)
+    modelin = torch.load(f'{MODELS_DIR}/resnet50_test3.pth')
+
     trainer = MyTrainer(cfg)
-    trainer.resume_or_load(resume=True)
-    trainer.train()
+    # trainer.resume_or_load(resume=True)
+    # trainer.train()
 
 
 

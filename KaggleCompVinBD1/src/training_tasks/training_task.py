@@ -15,7 +15,7 @@ import weakref
 
 from src.utils.events import EventStorage
 from src.training_tasks import BackpropAggregators
-from src.data_augs.mix_up import MixUpImage
+from src.data_augs.mix_up import MixUpImage, MixUpImageWithAnnotations
 
 class TrainingTask:
 
@@ -94,7 +94,7 @@ class SimpleTrainer(TrainingTask):
             raise e
 
         data.display_metrics(data.get_metrics())
-        self.data = iter(DataLoader(data, batch_size=batch_size, num_workers=4))
+        self.data = iter(DataLoader(data, batch_size=batch_size, num_workers=4, collate_fn=collate_fn))
 
         self.optimizer: optim.Optimizer = optimizer
 
@@ -127,7 +127,10 @@ class SimpleTrainer(TrainingTask):
 
         # TODO - make this an augmenter class, where you register augmenters.
         # Sucks that pytorch doesn't have something similar to this out of the box (augs by batch rather than by ind. samples)
-        data = MixUpImage()(data)
+        if 'annotations' in data:
+            data = MixUpImageWithAnnotations()(data)
+        else:
+            data = MixUpImage()(data)
 
         data_delta = time.perf_counter() - data_start
 
@@ -167,3 +170,20 @@ class DistributedModel(torch.nn.DataParallel):
             return super().__getattr__(name)
         except AttributeError:
             return getattr(self.module, name)
+
+
+def collate_fn(batch):
+    # TODO - didn't know this was a thing! This is where the data augs per batch should go. Also expand and refactor
+    #  this to be a bit better/faster
+
+    image = torch.tensor([item['image'] for item in batch])
+
+    if 'label' in batch[0]:
+        label = torch.tensor([item['label'] for item in batch])
+
+        return {'image': image, 'label': label}
+
+    if 'annotations' in batch[0]:
+        annotations = [{'boxes': torch.tensor(x['annotations']['boxes']), 'labels': torch.tensor(x['annotations']['labels'])} for x in batch]
+
+        return {'image': image, 'annotations': annotations}

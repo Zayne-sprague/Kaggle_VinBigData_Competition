@@ -39,6 +39,7 @@ class TrainingDataSet(IterableDataset):
             self.meta_data = None
 
         self.image_size: int = config.image_size
+        self.__annotated__: bool = False
 
         self.image_dir: Path = CONVERTED_VBD_DICOM_DATA_FOLDER / f'{self.image_size}' / 'train'
 
@@ -70,7 +71,13 @@ class TrainingDataSet(IterableDataset):
 
         record = self.records[idx]
 
-        record['label'] = np.array(record['label'])
+        if 'label' in record:
+            record['label'] = np.array(record['label'])
+        if 'annotations' in record:
+            record['annotations'] = {'boxes': np.array(record['annotations']['boxes']), 'labels': np.array(record['annotations']['labels'])}
+
+
+
 
         if 'filename' in record:
             image = io.imread(record['file_name'] + '.png')
@@ -170,6 +177,7 @@ class TrainingDataSet(IterableDataset):
             dl.records = part
             dl.meta_data = self.meta_data
             dl.annotation_data = self.annotation_data
+            dl.__annotated__ = self.__annotated__
             # Really we could be returning them all at once-- but just incase we ever want to make this parallel
             # it makes since to just yield and do list(partition_data([0.25, 0.75])) if you want it all in one go
             # You can also just do a, b, c, d = partition_data([0.25, 0.25, 0.25, 0.25]) which is cool!
