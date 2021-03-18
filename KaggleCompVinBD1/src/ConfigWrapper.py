@@ -51,6 +51,7 @@ class ConfigWrapper:
         if self.use_gpu and self.gpu_count > 1 and self.one_gpu_for_validation:
             self.validation_device = self.devices[-1]
             self.devices = self.devices[:-1]
+            self.gpu_count -= 1
         elif self.one_gpu_for_validation and self.gpu_count <= 1:
             log.warn("Attempted to hold off one GPU for validation, but only 1 gpu was found, defaulting validation device to base device")
             self.validation_device = self.devices[0]

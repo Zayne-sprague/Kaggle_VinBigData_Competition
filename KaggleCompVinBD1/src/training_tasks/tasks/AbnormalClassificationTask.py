@@ -41,7 +41,8 @@ class AbnormalClassificationTask(SimpleTrainer):
 
             y: torch.Tensor = torch.argmax(batch['label'], 1)
 
-            predictions = torch.argmax(model(batch)['preds'], 1)
+            preds = model(batch)
+            predictions = torch.argmax(preds['preds'], 1)
 
             for idx, prediction in enumerate(predictions.tolist()):
                 if prediction == y[idx]:
@@ -117,10 +118,10 @@ class AbnormalClassificationTask(SimpleTrainer):
         mean_ap, average_precisions = mean_average_precision_for_boxes(ann, det)
 
 
-        table = []
-        for stat in stats:
-            table.append([stat, stats[stat][0], stats[stat][1]])
-
-        self.log.info(f'\n-- Validation Report --\n{tabulate(table, headers=["Type", "Correct", "Incorrect"])}')
+        # table = []
+        # for stat in stats:
+        #     table.append([stat, stats[stat][0], stats[stat][1]])
+        #
+        # self.log.info(f'\n-- Validation Report --\n{tabulate(table, headers=["Type", "Correct", "Incorrect"])}')
 
         return stats

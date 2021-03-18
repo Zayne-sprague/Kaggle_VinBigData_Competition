@@ -82,5 +82,9 @@ class TrainingAbnormalDataSet(TrainingDataSet):
         for ky in metrics:
             table.append([ky, metrics[ky]])
 
-        self.log.info(f'\n-- Abnormal DataSet Metrics --\n{tabulate(table, headers=["Type", "Number Of Examples"])}')
+        second_row_title = 'Number of Examples'
+        if self.__annotated__:
+            second_row_title = 'Number of Annotations'
+
+        self.log.info(f'\n-- Abnormal DataSet Metrics --\n{tabulate(table, headers=["Type", second_row_title])}')
 
