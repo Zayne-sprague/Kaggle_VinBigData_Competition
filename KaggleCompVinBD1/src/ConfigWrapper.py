@@ -30,6 +30,7 @@ class ConfigWrapper:
         self.batch_size: int = int(os.environ.get("batch_size", 16))
 
         self.gpu_count: int = int(os.environ.get("GPU_COUNT", 0))
+        self.one_gpu_for_validation: bool = strtobool(os.environ.get("HOLD_ONE_GPU_FOR_VALIDATION", False))
         self.use_gpu: bool = self.gpu_count > 0 and torch.cuda.is_available()
 
         if self.gpu_count > 0 and not self.use_gpu:
@@ -41,10 +42,20 @@ class ConfigWrapper:
             self.gpu_count = torch.cuda.device_count()
 
         self.devices: List[torch.device]
+        self.validation_device: torch.device
         if self.use_gpu:
             self.devices = [torch.device(f'cuda:{x}') for x in range(self.gpu_count)]
         else:
             self.devices = [torch.device('cpu')]
+
+        if self.use_gpu and self.gpu_count > 1 and self.one_gpu_for_validation:
+            self.validation_device = self.devices[-1]
+            self.devices = self.devices[:-1]
+        elif self.one_gpu_for_validation and self.gpu_count <= 1:
+            log.warn("Attempted to hold off one GPU for validation, but only 1 gpu was found, defaulting validation device to base device")
+            self.validation_device = self.devices[0]
+        else:
+            self.validation_device = self.devices[0]
 
         if self.use_gpu:
             torch.cuda.set_device(0)

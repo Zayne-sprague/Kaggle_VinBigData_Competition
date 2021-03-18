@@ -117,11 +117,13 @@ class CheckpointHook(PeriodicStepFuncHook):
 
         model: BaseModel = self.trainer.model
 
-        # TODO - really we only need to checkpoint once, then copy/paste the file.
-        ith = '' if self.max_checkpoints == 0 else f'_{self.ith_checkpoint + 1}'
         model.checkpoint(name=self.name, state=self.build_state())
-        model.checkpoint(name=f'{self.name}{ith}', state=self.build_state())
-        self.ith_checkpoint = (self.ith_checkpoint + 1) % self.max_checkpoints
+
+        # TODO - really we only need to checkpoint once, then copy/paste the file.
+        if self.max_checkpoints > 0:
+            ith = '' if self.max_checkpoints == 0 else f'_{self.ith_checkpoint + 1}'
+            model.checkpoint(name=f'{self.name}{ith}', state=self.build_state())
+            self.ith_checkpoint = (self.ith_checkpoint + 1) % self.max_checkpoints
 
         if self.permanent_checkpoints > 0 and self.trainer.iter > 0 and self.trainer.iter % self.permanent_checkpoints == 0:
             self.trainer.log.info("Permanent checkpoint hit... saving model again.")

@@ -60,11 +60,11 @@ class AbnormalClassificationTask(SimpleTrainer):
         return stats
 
     def annotation_validation(self, dataloader: TrainingAbnormalDataSet, _model: BaseModel) -> dict:
-        from src.modeling.models.retinaNetFPN import RetinaNetFPN
+        from src.modeling.models.retinaNetFPN.retinaNetFPN import RetinaNetFPN
 
         model = RetinaNetFPN()
         model.load_state_dict(_model.state_dict())
-        model.to(config.devices[1])
+        model.to(config.validation_device)
         model.eval()
 
         self.log.info("Beginning Validation")
@@ -94,7 +94,7 @@ class AbnormalClassificationTask(SimpleTrainer):
             for ky, val in batch.items():
                 # If we can, try to load up the batched data into the device (try to only send what is needed)
                 if isinstance(batch[ky], torch.Tensor):
-                    batch[ky] = batch[ky].to(config.devices[1])
+                    batch[ky] = batch[ky].to(config.validation_device)
 
             predictions = model(batch)
 

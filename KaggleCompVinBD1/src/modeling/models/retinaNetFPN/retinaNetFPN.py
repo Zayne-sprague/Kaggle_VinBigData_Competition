@@ -1,29 +1,26 @@
 import torch
 from torchvision.models.detection import retinanet_resnet50_fpn
+from torchvision.models.detection.retinanet import RetinaNetHead, RetinaNetClassificationHead
 from torchvision.ops import sigmoid_focal_loss
 
 from src.modeling.models.model import BaseModel
+from src.modeling.models.res50.res50 import Res50
 from src.utils.hooks import CheckpointHook
+from src.utils.paths import MODELS_DIR
+
+from torchvision.models import resnet50
+
 
 
 class RetinaNetFPN(BaseModel):
     def __init__(self):
         super().__init__(model_name="RetinaNetFPN")
 
-        self.m = retinanet_resnet50_fpn(False, num_classes=2)
-        # a = Res50()
-        # a.load_state_dict(torch.load(f'{MODELS_DIR}/resnet50_test2.pth')['model_state_dict'])
+        self.m = retinanet_resnet50_fpn(True)
 
-
-        # self.m.backbone.body.layer1 = self.a.layer1
-        # self.m.backbone.body.layer2 = self.a.layer2
-        # self.m.backbone.body.layer3 = self.a.layer3
-        # self.m.backbone.body.layer4 = self.a.layer4
-        # self.m = nn.Sequential(*(list(self.m.children()))[:])
-
-        # Duck patch! worst code I've ever written-- I am so sorry...
-        # TODO - find a better way to do this...
-        self.m.head.classification_head.compute_loss = lambda *args, **kwargs: class_retina_head_loss(self.m.head.classification_head, *args, **kwargs)
+        # Not my favorite code-- but it will get the job done and is nicer than the duck patch.  It also allows
+        # native transfer learning from the torchvision package.
+        self.m.head = TwoClassRetinaHead(self.m.backbone, self.m.head)
 
     def forward(self, data: dict) -> dict:
         x = data['image']
@@ -57,64 +54,65 @@ class RetinaNetFPN(BaseModel):
         return {'loss': loss}
 
 
-class ResnetCheckpointHook(CheckpointHook):
+class TwoClassRetinaHead(torch.nn.Module):
 
-    def build_state(self) -> dict:
-        assert self.trainer.__getattribute__('model') is not None, 'trainer does not have the model to checkpoint'
+    def __init__(self, backbone, head: RetinaNetHead):
+        super().__init__()
 
-        state = {}
+        # TODO - allow transfer learning here, there's only 1 conv layer that cannot be transfered.
+        self.classification_head = RetinaNetClassificationHeadOHE(backbone.out_channels, head.classification_head.num_anchors, 2)
+        self.regression_head = head.regression_head
 
-        optimizer: optim.Optimizer = self.trainer.optimizer
-        state['optim_state'] = optimizer.state_dict()
+    def compute_loss(self, targets, head_outputs, anchors, matched_idxs):
+        return {
+            'classification': self.classification_head.compute_loss(targets, head_outputs, matched_idxs),
+            'bbox_regression': self.regression_head.compute_loss(targets, head_outputs, anchors, matched_idxs),
+        }
 
-        state['iteration'] = self.trainer.iter
+    def forward(self, x):
+        return {
+            'cls_logits': self.classification_head(x),
+            'bbox_regression': self.regression_head(x)
+        }
 
-        return state
 
-    def on_resume(self):
-        state = super().on_resume()
+class RetinaNetClassificationHeadOHE(RetinaNetClassificationHead):
 
-        if 'optim_state' in state:
-            self.trainer.optimizer.load_state_dict(state['optim_state'])
+    def compute_loss(self, targets, head_outputs, matched_idxs):
+        def _sum(x):
+            res = x[0]
+            for i in x[1:]:
+                res = res + i
+            return res
 
-        if 'iteration' in state:
-            self.trainer.start_iter = state['iteration']
-            self.trainer.iter = state['iteration']
+        losses = []
 
-def class_retina_head_loss(self, targets, head_outputs, matched_idxs):
-    def _sum(x):
-        res = x[0]
-        for i in x[1:]:
-            res = res + i
-        return res
+        cls_logits = head_outputs['cls_logits']
 
-    losses = []
+        for targets_per_image, cls_logits_per_image, matched_idxs_per_image in zip(targets, cls_logits, matched_idxs):
+            # determine only the foreground
+            foreground_idxs_per_image = matched_idxs_per_image >= 0
+            num_foreground = foreground_idxs_per_image.sum()
 
-    cls_logits = head_outputs['cls_logits']
+            # create the target classification
+            gt_classes_target = torch.zeros_like(cls_logits_per_image).float()
+            gt_classes_target[
+                foreground_idxs_per_image,
 
-    for targets_per_image, cls_logits_per_image, matched_idxs_per_image in zip(targets, cls_logits, matched_idxs):
-        # determine only the foreground
-        foreground_idxs_per_image = matched_idxs_per_image >= 0
-        num_foreground = foreground_idxs_per_image.sum()
+            ] = targets_per_image['labels'][matched_idxs_per_image[foreground_idxs_per_image]].float()
 
-        # create the target classification
-        gt_classes_target = torch.zeros_like(cls_logits_per_image).float()
-        gt_classes_target[
-            foreground_idxs_per_image,
+            # find indices for which anchors should be ignored
+            valid_idxs_per_image = matched_idxs_per_image != self.BETWEEN_THRESHOLDS
 
-        ] = targets_per_image['labels'][matched_idxs_per_image[foreground_idxs_per_image]].float()
+            # compute the classification loss
+            losses.append(sigmoid_focal_loss(
+                cls_logits_per_image[valid_idxs_per_image],
+                gt_classes_target[valid_idxs_per_image],
+                reduction='sum',
+            ) / max(1, num_foreground))
 
-        # find indices for which anchors should be ignored
-        valid_idxs_per_image = matched_idxs_per_image != self.BETWEEN_THRESHOLDS
+        return _sum(losses) / len(targets)
 
-        # compute the classification loss
-        losses.append(sigmoid_focal_loss(
-            cls_logits_per_image[valid_idxs_per_image],
-            gt_classes_target[valid_idxs_per_image],
-            reduction='sum',
-        ) / max(1, num_foreground))
-
-    return _sum(losses) / len(targets)
 
 if __name__ == "__main__":
     from src.data.abnormal_dataset import TrainingAbnormalDataSet
@@ -129,15 +127,15 @@ if __name__ == "__main__":
     dataloader = TrainingAbnormalDataSet()
     dataloader.load_records(keep_annotations=True)
 
-    train_dl, val_dl = dataloader.partition_data([0.75, 0.25], TrainingAbnormalDataSet)
+    train_dl, val_dl = dataloader.partition_data([0.95, 0.05], TrainingAbnormalDataSet)
 
     task = AbnormalClassificationTask(model, train_dl, optim.Adam(model.parameters(), lr=0.0001), backward_agg=BackpropAggregators.MeanLosses)
     task.max_iter = 25000
 
-    val_hook = PeriodicStepFuncHook(5000, lambda: task.annotation_validation(val_dl, model))
-    checkpoint_hook = ResnetCheckpointHook(1000, "retinanet_test2")
+    val_hook = PeriodicStepFuncHook(20, lambda: task.annotation_validation(val_dl, model))
+    checkpoint_hook = CheckpointHook(5, "retinanet_test3")
 
-    task.register_hook(LogTrainingLoss())
+    task.register_hook(LogTrainingLoss(frequency=1))
     task.register_hook(StepTimer())
     task.register_hook(val_hook)
     task.register_hook(checkpoint_hook)

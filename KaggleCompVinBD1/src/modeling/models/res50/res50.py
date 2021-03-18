@@ -3,7 +3,7 @@ from torch import nn
 from torchvision.models import resnet50
 
 from src.modeling.models.model import BaseModel
-from src.modeling.losses import NLLLossOHE
+from src.modeling.losses.NLLLossOHE import NLLLossOHE
 from src.utils.hooks import CheckpointHook
 
 
