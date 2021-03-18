@@ -9,5 +9,6 @@ PyQt5==5.15.4
 coloredlogs==15.0
 tabulate==0.8.9
 shapely
+map-boxes
 
 git+https://github.com/facebookresearch/detectron2.git
