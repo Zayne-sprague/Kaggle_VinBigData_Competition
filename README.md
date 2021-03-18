@@ -3,6 +3,8 @@ First Kaggle Competition for VinBigData
 Goal:
 - 
 
+- [ ] Explore Torch Lightening
+
 - [x] Rebuild the ResNet 50 model ( backbone for the detectron2 model )
     - [x] Find 256px Grayscale pretrained resnet-50 weights, someone has to have it
     - [x] Visualize training to make sure its working correctly 
