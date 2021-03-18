@@ -6,36 +6,30 @@ from torchvision.models.detection.retinanet import RetinaNetHead
 from torchvision.ops import sigmoid_focal_loss
 
 from src.models.model import BaseModel
+from src.models.res50.res50 import Res50
 from src.losses.NLLLossOHE import NLLLossOHE
 from src.utils.hooks import CheckpointHook
+from src.utils.paths import MODELS_DIR
 
 
 class RetinaNetFPN(BaseModel):
     def __init__(self):
         super().__init__(model_name="RetinaNetFPN")
 
-        self.model = nn.Sequential(*(list(resnet50(True).children()))[:-1])
-        self.a = resnet50(True)
-
-        # head = RetinaNetHead()
         self.m = retinanet_resnet50_fpn(False, num_classes=2)
+        # a = Res50()
+        # a.load_state_dict(torch.load(f'{MODELS_DIR}/resnet50_test2.pth')['model_state_dict'])
 
-        self.m.backbone.body.layer1 = self.a.layer1
-        self.m.backbone.body.layer2 = self.a.layer2
-        self.m.backbone.body.layer3 = self.a.layer3
-        self.m.backbone.body.layer4 = self.a.layer4
+
+        # self.m.backbone.body.layer1 = self.a.layer1
+        # self.m.backbone.body.layer2 = self.a.layer2
+        # self.m.backbone.body.layer3 = self.a.layer3
+        # self.m.backbone.body.layer4 = self.a.layer4
         # self.m = nn.Sequential(*(list(self.m.children()))[:])
 
         # Duck patch! worst code I've ever written-- I am so sorry...
         # TODO - find a better way to do this...
         self.m.head.classification_head.compute_loss = lambda *args, **kwargs: class_retina_head_loss(self.m.head.classification_head, *args, **kwargs)
-
-
-        self.fc = nn.Linear(2048, 2)
-        self.lsoft = nn.LogSoftmax(dim=-1)
-
-        self.criterion = NLLLossOHE()
-
 
     def forward(self, data: dict) -> dict:
         x = data['image']
@@ -55,9 +49,13 @@ class RetinaNetFPN(BaseModel):
         #     annotations[idx]['labels'] = torch.argmax(annotation['labels'], 1)
         x = self.m(x, annotations)
 
-        out = {'losses': x}
+        if self.training:
+            loss = (x['classification'] + x['bbox_regression']).mean()
+            out = {'losses': {'loss': loss}}
 
-        return out
+            return out
+        else:
+            return x
 
     def loss(self, predictions: dict, data: dict) -> dict:
         predictions: torch.Tensor = predictions['preds']
@@ -143,8 +141,8 @@ if __name__ == "__main__":
     task = AbnormalClassificationTask(model, train_dl, optim.Adam(model.parameters(), lr=0.0001), backward_agg=BackpropAggregators.MeanLosses)
     task.max_iter = 25000
 
-    val_hook = PeriodicStepFuncHook(5000, lambda: task.validation(val_dl, model))
-    checkpoint_hook = ResnetCheckpointHook(1000, "retinanet_test1")
+    val_hook = PeriodicStepFuncHook(5000, lambda: task.annotation_validation(val_dl, model))
+    checkpoint_hook = ResnetCheckpointHook(1000, "retinanet_test2")
 
     task.register_hook(LogTrainingLoss())
     task.register_hook(StepTimer())

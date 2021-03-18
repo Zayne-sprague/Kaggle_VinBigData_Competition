@@ -80,7 +80,7 @@ class SimpleTrainer(TrainingTask):
 
         try:
             if config.use_gpu and config.gpu_count > 1:
-                self.model = DistributedModel(model, device_ids=config.devices)
+                self.model = DistributedModel(model, device_ids=config.devices[:-1] if data.__annotated__ else config.devices)
                 self.log.info("Distributing model across GPUs")
 
                 self.log.info(f"Using {config.gpu_count} gpus will split the set batch size ({batch_size}) to a batch size of {int(batch_size / config.gpu_count)} per GPU.")
@@ -109,6 +109,7 @@ class SimpleTrainer(TrainingTask):
                 [self.storage.put_item(key, x) for x in item_list]
             else:
                 self.storage.put_item(key, metrics[key].item())
+
 
         self.storage.put_item("data_delta", data_delta)
         self.storage.put_item("inference_delta", inference_delta)

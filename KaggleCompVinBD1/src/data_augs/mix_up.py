@@ -72,7 +72,7 @@ class MixUpImageWithAnnotations:
 
                 for idx1, (box1, label1) in enumerate(zip(l1['boxes'], l1['labels'])):
                     for _, (box2, label2) in enumerate(zip(l2['boxes'], l2['labels'])):
-                        if overlap(box1, box2) or True:
+                        if True:
                             sample['annotations'][idx]['labels'][idx1] = lam * label1 + (1 - lam) * label2
 
 
@@ -87,5 +87,5 @@ def overlap(rect1,rect2) -> bool:
     try:
         return(p1.intersects(p2))
     except Exception as e:
-        log.critical(f'ERROR IN MIXUP: {e}')
+        # log.critical(f'ERROR IN MIXUP: {e}')
         return False
