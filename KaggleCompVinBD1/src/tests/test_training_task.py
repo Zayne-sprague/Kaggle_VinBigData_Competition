@@ -10,6 +10,8 @@ from src.data_augs.mix_up import MixUpImage
 from src.models.simple.SimpleNet import SimpleNet
 from src.data.abnormal_dataset import TrainingAbnormalDataSet
 
+from src.data_augs.batch_augmenter import BatchAugmenter
+from src.data_augs.mix_up import MixUpImage, MixUpImageWithAnnotations
 
 def validation_tester():
     print("Validate")
@@ -18,12 +20,8 @@ def validation_tester():
 class TestTrainingTask(TestCase):
 
     def test_basic(self):
-        mix_up_aug = MixUpImage()
-
         # model = PseudoModel()
         # dataloader = PseudoModel()
-
-
         # dataloader.load_records()
 
         model = SimpleNet()
@@ -35,7 +33,12 @@ class TestTrainingTask(TestCase):
         # train_dl.register_augmentation(mix_up_aug)
 
 
-        task = AbnormalClassificationTask(model, train_dl, Adam(model.parameters(), lr=0.0001))
+        batch_aug = BatchAugmenter()
+        batch_aug.compose([
+            MixUpImage(probability=0.75)
+        ])
+
+        task = AbnormalClassificationTask(model, train_dl, Adam(model.parameters(), lr=0.0001), batch_augmenter=batch_aug)
         task.max_iter = 100_000_000
         # task = TrainingTask()
 

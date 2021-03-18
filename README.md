@@ -21,7 +21,7 @@ Goal:
     - [ ] Create custom retina classification head (instead of duck patch)
     - [ ] Fix Validation for Retina to be faster/cleaner in logs
         - [ ] Create custom mAP metrics (better understand it, but also verifies implementation)
-    - [ ] Fix Batch Augmentation
+    - [x] Fix Batch Augmentation
 - [ ] Create ResNet50 FPN model w/ classifiers per class (weights from detectron)
 - [ ] Ensemble the two models, custom resnet 50 model and detectron to classify if an abnormality is present then find the bounding box for said abnormality respectively
 

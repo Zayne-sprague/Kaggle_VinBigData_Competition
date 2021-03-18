@@ -14,8 +14,9 @@ from src.utils.hooks import HookBase
 import weakref
 
 from src.utils.events import EventStorage
+from src.utils.collater import Collater, SimpleCollater
 from src.training_tasks import BackpropAggregators
-from src.data_augs.mix_up import MixUpImage, MixUpImageWithAnnotations
+from src.data_augs.batch_augmenter import BatchAugmenter
 
 class TrainingTask:
 
@@ -73,7 +74,16 @@ class TrainingTask:
 
 # Inspired by detectron2s structure.
 class SimpleTrainer(TrainingTask):
-    def __init__(self, model: BaseModel, data: TrainingDataSet, optimizer: optim.Optimizer, backward_agg: BackpropAggregators = BackpropAggregators.IndividualBackprops):
+    def __init__(
+            self,
+            model: BaseModel,
+            data: TrainingDataSet,
+            optimizer: optim.Optimizer,
+            backward_agg: BackpropAggregators = BackpropAggregators.IndividualBackprops,
+            batch_augmenter: BatchAugmenter = None,
+            collater: Collater = None
+    ):
+
         super().__init__()
 
         batch_size = config.batch_size
@@ -94,7 +104,20 @@ class SimpleTrainer(TrainingTask):
             raise e
 
         data.display_metrics(data.get_metrics())
-        self.data = iter(DataLoader(data, batch_size=batch_size, num_workers=4, collate_fn=collate_fn))
+
+        if collater and batch_augmenter:
+            self.log.warning("Both Collater and Batch Augmenter passed into training task-- defaulting to the Collater for batch augmentations (ignoring the batch aug passed in)")
+        if not collater:
+            collater = SimpleCollater(batch_augmenter=batch_augmenter)
+
+        self.collater: Collater = collater
+
+        self.data = iter(DataLoader(
+            data,
+            batch_size=batch_size,
+            num_workers=4,
+            collate_fn=self.collater
+        ))
 
         self.optimizer: optim.Optimizer = optimizer
 
@@ -125,13 +148,6 @@ class SimpleTrainer(TrainingTask):
             # If we can, try to load up the batched data into the device (try to only send what is needed)
             if isinstance(data[ky], torch.Tensor):
                 data[ky] = data[ky].to(config.devices[0])
-
-        # TODO - make this an augmenter class, where you register augmenters.
-        # Sucks that pytorch doesn't have something similar to this out of the box (augs by batch rather than by ind. samples)
-        if 'annotations' in data:
-            data = MixUpImageWithAnnotations()(data)
-        else:
-            data = MixUpImage()(data)
 
         data_delta = time.perf_counter() - data_start
 
@@ -173,18 +189,3 @@ class DistributedModel(torch.nn.DataParallel):
             return getattr(self.module, name)
 
 
-def collate_fn(batch):
-    # TODO - didn't know this was a thing! This is where the data augs per batch should go. Also expand and refactor
-    #  this to be a bit better/faster
-
-    image = torch.tensor([item['image'] for item in batch])
-
-    if 'label' in batch[0]:
-        label = torch.tensor([item['label'] for item in batch], dtype=torch.float)
-
-        return {'image': image, 'label': label}
-
-    if 'annotations' in batch[0]:
-        annotations = [{'boxes': torch.tensor(x['annotations']['boxes']), 'labels': torch.tensor(x['annotations']['labels'], dtype=torch.float)} for x in batch]
-
-        return {'image': image, 'annotations': annotations}

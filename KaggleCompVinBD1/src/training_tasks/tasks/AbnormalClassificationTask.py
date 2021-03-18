@@ -10,7 +10,7 @@ from tabulate import tabulate
 from src import config
 from src.models.model import BaseModel
 from src.data.abnormal_dataset import TrainingAbnormalDataSet
-from src.training_tasks.training_task import SimpleTrainer, collate_fn, DistributedModel
+from src.training_tasks.training_task import SimpleTrainer, DistributedModel
 
 
 class AbnormalClassificationTask(SimpleTrainer):
@@ -73,7 +73,7 @@ class AbnormalClassificationTask(SimpleTrainer):
 
         dataloader.display_metrics(dataloader.get_metrics())
 
-        data = iter(DataLoader(dataloader, batch_size=config.batch_size, num_workers=4, collate_fn=collate_fn))
+        data = iter(DataLoader(dataloader, batch_size=config.batch_size, num_workers=4, collate_fn=self.collater))
         total = len(dataloader) // config.batch_size + 1
 
         # idx 0 == correct, idx 1 == incorrect
