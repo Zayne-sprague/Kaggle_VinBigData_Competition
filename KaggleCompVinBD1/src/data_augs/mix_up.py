@@ -1,6 +1,9 @@
 import torch
+
 import numpy as np
 import random
+from typing import Tuple
+
 from .batch_augmenter import Augmentor
 
 
@@ -55,9 +58,11 @@ class MixUpImageWithAnnotations(Augmentor):
 
                 batch['image'][idx] = lam * im1 + (1 - lam) * im2
 
-                for idx1, (box1, label1) in enumerate(zip(l1['boxes'], l1['labels'])):
-                    for _, (box2, label2) in enumerate(zip(l2['boxes'], l2['labels'])):
-                        if True:
-                            batch['annotations'][idx]['labels'][idx1] = lam * label1 + (1 - lam) * label2
+                # TODO - this assumes that all the bounding boxes are now independent of the classifications present within... maybe this is ok?
+                # if an xray has two ailments in the same spot, is that really "50% of x and 50% of y" or two separate boxes with 100% confidence in each?
+                # Shouldn't there be weighting based on the beta coefficient? I think we need to do more research here.
+                batch['annotations'][idx]['boxes'] = torch.cat([l1['boxes'], l2['boxes']], 0)
+                batch['annotations'][idx]['labels'] = torch.cat([l1['labels'], l2['labels']], 0)
 
         return batch
+

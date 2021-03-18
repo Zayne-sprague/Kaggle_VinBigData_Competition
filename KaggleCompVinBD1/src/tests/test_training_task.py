@@ -5,7 +5,6 @@ from unittest import TestCase
 from src.training_tasks.tasks.AbnormalClassificationTask import AbnormalClassificationTask
 
 from src.utils.hooks import StepTimer, PeriodicStepFuncHook, CheckpointHook, LogTrainingLoss
-from src.data_augs.mix_up import MixUpImage
 
 from src.models.simple.SimpleNet import SimpleNet
 from src.data.abnormal_dataset import TrainingAbnormalDataSet
@@ -26,7 +25,7 @@ class TestTrainingTask(TestCase):
 
         model = SimpleNet()
         dataset = TrainingAbnormalDataSet()
-        dataset.load_records(keep_annotations=False)
+        dataset.load_records(keep_annotations=True)
 
 
         train_dl, val_dl = dataset.partition_data([0.75, 0.25], TrainingAbnormalDataSet)
@@ -35,7 +34,7 @@ class TestTrainingTask(TestCase):
 
         batch_aug = BatchAugmenter()
         batch_aug.compose([
-            MixUpImage(probability=0.75)
+            MixUpImageWithAnnotations(probability=1.0)
         ])
 
         task = AbnormalClassificationTask(model, train_dl, Adam(model.parameters(), lr=0.0001), batch_augmenter=batch_aug)
