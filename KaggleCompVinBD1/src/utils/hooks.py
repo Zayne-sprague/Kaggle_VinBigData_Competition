@@ -2,7 +2,7 @@ from torch import optim
 from typing import Optional, List
 
 from src.utils.timer import Timer
-from src.models.model import BaseModel
+from src.modeling.models.model import BaseModel
 from src.visualizations.visualization import Visualization
 from src import hooks_log, training_log
 

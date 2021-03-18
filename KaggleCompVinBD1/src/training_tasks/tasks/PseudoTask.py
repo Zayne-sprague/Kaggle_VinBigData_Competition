@@ -1,12 +1,10 @@
-import torch
 from torch import nn
 from torch.nn import Module
-from torch.utils.data import random_split, Dataset, DataLoader
 from torch import optim
 import time
 import random
 
-from src.models.model import BaseModel
+from src.modeling.models.model import BaseModel
 from src.training_tasks.training_task import TrainingTask
 
 

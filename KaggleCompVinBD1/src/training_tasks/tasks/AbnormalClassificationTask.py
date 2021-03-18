@@ -1,16 +1,14 @@
 import torch
-import torchvision
 from torch.utils.data import DataLoader
 
 from map_boxes import mean_average_precision_for_boxes
-import time
 from tqdm import tqdm
 from tabulate import tabulate
 
 from src import config
-from src.models.model import BaseModel
+from src.modeling.models.model import BaseModel
 from src.data.abnormal_dataset import TrainingAbnormalDataSet
-from src.training_tasks.training_task import SimpleTrainer, DistributedModel
+from src.training_tasks.training_task import SimpleTrainer
 
 
 class AbnormalClassificationTask(SimpleTrainer):
@@ -62,7 +60,7 @@ class AbnormalClassificationTask(SimpleTrainer):
         return stats
 
     def annotation_validation(self, dataloader: TrainingAbnormalDataSet, _model: BaseModel) -> dict:
-        from src.models.retinaNetFPN.retinaNetFPN import RetinaNetFPN
+        from src.modeling.models.retinaNetFPN import RetinaNetFPN
 
         model = RetinaNetFPN()
         model.load_state_dict(_model.state_dict())

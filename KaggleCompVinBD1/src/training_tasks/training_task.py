@@ -7,7 +7,7 @@ import logging
 import time
 
 from src import training_log, config
-from src.models.model import BaseModel
+from src.modeling.models.model import BaseModel
 from src.data.data_set import TrainingDataSet
 
 from src.utils.hooks import HookBase

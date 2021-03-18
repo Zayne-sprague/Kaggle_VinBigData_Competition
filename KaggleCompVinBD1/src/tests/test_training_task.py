@@ -6,13 +6,11 @@ from src.training_tasks.tasks.AbnormalClassificationTask import AbnormalClassifi
 
 from src.utils.hooks import StepTimer, PeriodicStepFuncHook, CheckpointHook, LogTrainingLoss
 
-from src.models.simple.SimpleNet import SimpleNet
-from src.models.pseudo.pseudo_model import PseudoModel
-from src.data.abnormal_dataset import TrainingAbnormalDataSet
+from src.modeling.models.pseudo.pseudo_model import PseudoModel
 from src.data.pseudo_dataset import TrainingPseudoDataSet
 
 from src.data_augs.batch_augmenter import BatchAugmenter
-from src.data_augs.mix_up import MixUpImage, MixUpImageWithAnnotations
+
 
 def validation_tester():
     print("Validate")

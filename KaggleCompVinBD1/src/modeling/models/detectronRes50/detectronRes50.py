@@ -1,15 +1,12 @@
 import torch
 from torch import nn
-from torchvision.models import resnet50
 
-from detectron2.engine import DefaultTrainer
 from detectron2.config import get_cfg
 from detectron2 import model_zoo
-from detectron2.evaluation import COCOEvaluator
 from detectron2.modeling import build_model
 
-from src.models.model import BaseModel
-from src.losses.NLLLossOHE import NLLLossOHE
+from src.modeling.models.model import BaseModel
+from src.modeling.losses import NLLLossOHE
 from src.utils.hooks import CheckpointHook
 from src.utils.paths import DATA
 
@@ -108,8 +105,7 @@ class ResnetCheckpointHook(CheckpointHook):
 if __name__ == "__main__":
     from src.data.abnormal_dataset import TrainingAbnormalDataSet
     from src.training_tasks.tasks.AbnormalClassificationTask import AbnormalClassificationTask
-    from src.utils.hooks import StepTimer, PeriodicStepFuncHook, TrainingVisualizationHook, \
-        LogTrainingLoss
+    from src.utils.hooks import StepTimer, PeriodicStepFuncHook, LogTrainingLoss
     from torch import optim
 
     from src.training_tasks import BackpropAggregators

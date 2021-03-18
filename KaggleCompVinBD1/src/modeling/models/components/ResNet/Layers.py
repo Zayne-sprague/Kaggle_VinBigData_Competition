@@ -1,9 +1,8 @@
-import torch
 from torch import nn
 from torch.nn import Module
 
-from src.models.components.ResNet.BuildingBlocks import ResnetBuildingBlock, ResnetBottleneckBlock
-from src.models.components.ResNet.IdentityMaps import ZeroPad, ProjectionShortcut
+from src.modeling.models.components.ResNet.BuildingBlocks import ResnetBuildingBlock, ResnetBottleneckBlock
+from src.modeling.models.components import ZeroPad, ProjectionShortcut
 
 
 class RNC1(Module):

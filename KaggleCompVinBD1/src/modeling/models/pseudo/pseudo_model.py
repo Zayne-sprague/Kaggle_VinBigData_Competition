@@ -1,8 +1,7 @@
 import torch
-from torch import nn
 
-from src.losses.NLLLossOHE import NLLLossOHE
-from src.models.model import BaseModel
+from src.modeling.losses.NLLLossOHE import NLLLossOHE
+from src.modeling.models.model import BaseModel
 
 
 class PseudoModel(BaseModel):

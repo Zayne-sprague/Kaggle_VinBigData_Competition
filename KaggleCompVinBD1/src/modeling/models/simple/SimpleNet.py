@@ -1,9 +1,9 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from src.losses.NLLLossOHE import NLLLossOHE
+from src.modeling.losses import NLLLossOHE
 
-from src.models.model import BaseModel
+from src.modeling.models.model import BaseModel
 
 
 class SimpleNet(BaseModel):

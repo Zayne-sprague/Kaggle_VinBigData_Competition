@@ -2,8 +2,8 @@ import torch
 from torch import nn
 from torchvision.models import resnet50
 
-from src.models.model import BaseModel
-from src.losses.NLLLossOHE import NLLLossOHE
+from src.modeling.models.model import BaseModel
+from src.modeling.losses import NLLLossOHE
 from src.utils.hooks import CheckpointHook
 
 
@@ -53,8 +53,7 @@ class Res50(BaseModel):
 if __name__ == "__main__":
     from src.data.abnormal_dataset import TrainingAbnormalDataSet
     from src.training_tasks.tasks.AbnormalClassificationTask import AbnormalClassificationTask
-    from src.utils.hooks import StepTimer, PeriodicStepFuncHook, TrainingVisualizationHook, \
-        LogTrainingLoss
+    from src.utils.hooks import StepTimer, PeriodicStepFuncHook, LogTrainingLoss
     from torch import optim
 
     from src.training_tasks import BackpropAggregators

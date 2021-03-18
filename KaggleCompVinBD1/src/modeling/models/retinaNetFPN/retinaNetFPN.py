@@ -1,15 +1,9 @@
 import torch
-from torch import nn
-from torchvision.models import resnet50
 from torchvision.models.detection import retinanet_resnet50_fpn
-from torchvision.models.detection.retinanet import RetinaNetHead
 from torchvision.ops import sigmoid_focal_loss
 
-from src.models.model import BaseModel
-from src.models.res50.res50 import Res50
-from src.losses.NLLLossOHE import NLLLossOHE
+from src.modeling.models.model import BaseModel
 from src.utils.hooks import CheckpointHook
-from src.utils.paths import MODELS_DIR
 
 
 class RetinaNetFPN(BaseModel):
@@ -125,8 +119,7 @@ def class_retina_head_loss(self, targets, head_outputs, matched_idxs):
 if __name__ == "__main__":
     from src.data.abnormal_dataset import TrainingAbnormalDataSet
     from src.training_tasks.tasks.AbnormalClassificationTask import AbnormalClassificationTask
-    from src.utils.hooks import StepTimer, PeriodicStepFuncHook, TrainingVisualizationHook, \
-        LogTrainingLoss
+    from src.utils.hooks import StepTimer, PeriodicStepFuncHook, LogTrainingLoss
     from torch import optim
 
     from src.training_tasks import BackpropAggregators
