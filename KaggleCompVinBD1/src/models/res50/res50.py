@@ -49,30 +49,6 @@ class Res50(BaseModel):
         return {'loss': loss}
 
 
-class ResnetCheckpointHook(CheckpointHook):
-
-    def build_state(self) -> dict:
-        assert self.trainer.__getattribute__('model') is not None, 'trainer does not have the model to checkpoint'
-
-        state = {}
-
-        optimizer: optim.Optimizer = self.trainer.optimizer
-        state['optim_state'] = optimizer.state_dict()
-
-        state['iteration'] = self.trainer.iter
-
-        return state
-
-    def on_resume(self):
-        state = super().on_resume()
-
-        if 'optim_state' in state:
-            self.trainer.optimizer.load_state_dict(state['optim_state'])
-
-        if 'iteration' in state:
-            self.trainer.start_iter = state['iteration']
-            self.trainer.iter = state['iteration']
-
 
 if __name__ == "__main__":
     from src.data.abnormal_dataset import TrainingAbnormalDataSet
@@ -94,7 +70,7 @@ if __name__ == "__main__":
     task.max_iter = 25000
 
     val_hook = PeriodicStepFuncHook(5000, lambda: task.validation(val_dl, model))
-    checkpoint_hook = ResnetCheckpointHook(1000, "resnet50_test3")
+    checkpoint_hook = CheckpointHook(1000, "resnet50_test3")
 
     task.register_hook(LogTrainingLoss())
     task.register_hook(StepTimer())

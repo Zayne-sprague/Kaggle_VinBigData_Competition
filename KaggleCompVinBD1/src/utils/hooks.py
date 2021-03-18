@@ -1,9 +1,11 @@
+from torch import optim
+from typing import Optional, List
+
 from src.utils.timer import Timer
 from src.models.model import BaseModel
 from src.visualizations.visualization import Visualization
 from src import hooks_log, training_log
 
-from typing import Optional, List
 
 
 # Following structure found in DetectronModeling, some modifications and simplifications
@@ -102,19 +104,41 @@ class PeriodicStepFuncHook(PeriodicStepHook):
 
 class CheckpointHook(PeriodicStepFuncHook):
 
-    def __init__(self, frequency: int, name: str):
+    def __init__(self, frequency: int, name: str, permanent_checkpoints: int = 0, keep_last_n_checkpoints: int = 0):
         super().__init__(frequency, self.checkpoint, after_training=True)
         self.__static_name__ = name
+        self.permanent_checkpoints: int = permanent_checkpoints
+
+        self.ith_checkpoint: int = 0
+        self.max_checkpoints: int = keep_last_n_checkpoints
 
     def checkpoint(self):
         assert self.trainer.__getattribute__('model') is not None, 'trainer has no model to checkpoint'
 
         model: BaseModel = self.trainer.model
+
+        # TODO - really we only need to checkpoint once, then copy/paste the file.
+        ith = '' if self.max_checkpoints == 0 else f'_{self.ith_checkpoint + 1}'
         model.checkpoint(name=self.name, state=self.build_state())
+        model.checkpoint(name=f'{self.name}{ith}', state=self.build_state())
+        self.ith_checkpoint = (self.ith_checkpoint + 1) % self.max_checkpoints
+
+        if self.permanent_checkpoints > 0 and self.trainer.iter > 0 and self.trainer.iter % self.permanent_checkpoints == 0:
+            self.trainer.log.info("Permanent checkpoint hit... saving model again.")
+            model.checkpoint(name=f'{self.name}@{self.trainer.iter}', state=self.build_state())
 
     def build_state(self):
+        assert self.trainer.__getattribute__('model') is not None, 'trainer does not have the model to checkpoint'
+
+        state = {}
+
+        optimizer: optim.Optimizer = self.trainer.optimizer
+        state['optim_state'] = optimizer.state_dict()
+
+        state['iteration'] = self.trainer.iter
+
         # You can override this if checkpoints need to hold specific data.
-        pass
+        return state
 
     @property
     def name(self):
@@ -127,8 +151,14 @@ class CheckpointHook(PeriodicStepFuncHook):
         model: BaseModel = self.trainer.model
         state = model.load(name=self.name)
 
-        return state
+        if 'optim_state' in state:
+            self.trainer.optimizer.load_state_dict(state['optim_state'])
 
+        if 'iteration' in state:
+            self.trainer.start_iter = state['iteration']
+            self.trainer.iter = state['iteration']
+
+        return state
 
 class TrainingVisualizationHook(PeriodicStepHook):
 

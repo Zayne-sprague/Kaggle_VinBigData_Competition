@@ -8,7 +8,7 @@ from src.utils.cacher import cache
 
 class TrainingPseudoDataSet(TrainingDataSet):
 
-    def __init__(self, num_classes: int = 2, num_of_records: int = 10000):
+    def __init__(self, readin_annotation_data=False, readin_meta_data=False, num_classes: int = 2, num_of_records: int = 10000):
         super().__init__(readin_annotation_data=False, readin_meta_data=False)
 
         self.num_classes: int = num_classes

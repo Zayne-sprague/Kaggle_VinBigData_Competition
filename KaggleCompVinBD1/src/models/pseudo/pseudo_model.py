@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 
+from src.losses.NLLLossOHE import NLLLossOHE
 from src.models.model import BaseModel
 
 
@@ -13,7 +14,7 @@ class PseudoModel(BaseModel):
 
         self.fc = torch.nn.Linear(1, self.num_classes)
 
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = NLLLossOHE()
 
     def forward(self, data: dict):
 
