@@ -194,6 +194,8 @@ if __name__ == "__main__":
     from src.training_tasks.tasks.AbnormalClassificationTask import AbnormalClassificationTask
     from src.utils.hooks import StepTimer, PeriodicStepFuncHook, LogTrainingLoss
     from torch import optim
+    from src.data_augs.batch_augmenter import BatchAugmenter
+    from src.data_augs.mix_up import MixUpImage
 
     from src.training_tasks import BackpropAggregators
 
@@ -202,15 +204,17 @@ if __name__ == "__main__":
     dataloader = TrainingAbnormalDataSet()
     dataloader.load_records(keep_annotations=False)
 
-    train_dl, val_dl = dataloader.partition_data([0.95, 0.05], TrainingAbnormalDataSet)
+    train_dl, val_dl = dataloader.partition_data([0.75, 0.25], TrainingAbnormalDataSet)
 
-    task = AbnormalClassificationTask(model, train_dl, optim.Adam(model.parameters(), lr=0.0001), backward_agg=BackpropAggregators.MeanLosses)
+    batch_aug = BatchAugmenter()
+    batch_aug.compose([MixUpImage(probability=0.75)])
+    task = AbnormalClassificationTask(model, train_dl, optim.Adam(model.parameters(), lr=0.0001), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
     task.max_iter = 25000
 
-    val_hook = PeriodicStepFuncHook(1, lambda: task.validation(val_dl, model))
-    checkpoint_hook = CheckpointHook(5, "retinanet_backbone_test")
+    val_hook = PeriodicStepFuncHook(500, lambda: task.validation(val_dl, model))
+    checkpoint_hook = CheckpointHook(100, "retinaFpnBackbone_realTestone", permanent_checkpoints=5000, keep_last_n_checkpoints=5)
 
-    task.register_hook(LogTrainingLoss(frequency=1))
+    task.register_hook(LogTrainingLoss(frequency=20))
     task.register_hook(StepTimer())
     task.register_hook(val_hook)
     task.register_hook(checkpoint_hook)

@@ -13,15 +13,20 @@ from src.training_tasks.training_task import SimpleTrainer
 
 class AbnormalClassificationTask(SimpleTrainer):
 
-    def validation(self, dataloader: TrainingAbnormalDataSet, model: BaseModel) -> dict:
+    def validation(self, dataloader: TrainingAbnormalDataSet, _model: BaseModel) -> dict:
+        from src.modeling.models.retinaNet.retinaNet import RetinaNet
+
+        model = RetinaNet()
+        model.load_state_dict(_model.state_dict())
+        model.to(config.validation_device)
         model.eval()
 
         self.log.info("Beginning Validation")
 
         dataloader.display_metrics(dataloader.get_metrics())
 
-        data = iter(DataLoader(dataloader, batch_size=1, num_workers=4))
-        total = len(dataloader) // config.batch_size + 1
+        data = iter(DataLoader(dataloader, batch_size=config.batch_size, num_workers=4))
+        total = (len(dataloader) // config.batch_size) + 1
 
         # idx 0 == correct, idx 1 == incorrect
         stats = {
@@ -37,7 +42,7 @@ class AbnormalClassificationTask(SimpleTrainer):
             for ky, val in batch.items():
                 # If we can, try to load up the batched data into the device (try to only send what is needed)
                 if isinstance(batch[ky], torch.Tensor):
-                    batch[ky] = batch[ky].to(config.devices[0])
+                    batch[ky] = batch[ky].to(config.validation_device)
 
             y: torch.Tensor = torch.argmax(batch['label'], 1)
 
@@ -73,7 +78,7 @@ class AbnormalClassificationTask(SimpleTrainer):
         dataloader.display_metrics(dataloader.get_metrics())
 
         data = iter(DataLoader(dataloader, batch_size=config.batch_size, num_workers=4, collate_fn=self.collater))
-        total = len(dataloader) // config.batch_size + 1
+        total = (len(dataloader) // config.batch_size) + 1
 
         # idx 0 == correct, idx 1 == incorrect
         stats = {

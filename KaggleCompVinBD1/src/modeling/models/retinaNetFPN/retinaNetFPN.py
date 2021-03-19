@@ -39,7 +39,11 @@ class RetinaNetFPN(BaseModel):
         # TODO - we need to remove this to allow for mixup
         # for idx, annotation in enumerate(annotations):
         #     annotations[idx]['labels'] = torch.argmax(annotation['labels'], 1)
-        x = self.m(x, annotations)
+        try:
+            x = self.m(x, annotations)
+        except Exception as e:
+            self.log.critical(f"ERROR {e}")
+            print(e)
 
         if self.training:
             storage = get_event_storage_context()
@@ -122,6 +126,8 @@ class RetinaNetClassificationHeadOHE(RetinaNetClassificationHead):
 if __name__ == "__main__":
     from src.data.abnormal_dataset import TrainingAbnormalDataSet
     from src.training_tasks.tasks.AbnormalClassificationTask import AbnormalClassificationTask
+    from src.data_augs.batch_augmenter import BatchAugmenter
+    from src.data_augs.mix_up import MixUpImageWithAnnotations
     from src.utils.hooks import StepTimer, PeriodicStepFuncHook, LogTrainingLoss
     from torch import optim
 
@@ -132,15 +138,17 @@ if __name__ == "__main__":
     dataloader = TrainingAbnormalDataSet()
     dataloader.load_records(keep_annotations=True)
 
-    train_dl, val_dl = dataloader.partition_data([0.95, 0.05], TrainingAbnormalDataSet)
+    train_dl, val_dl = dataloader.partition_data([0.75, 0.25], TrainingAbnormalDataSet)
 
+    batch_aug = BatchAugmenter()
+    batch_aug.compose([MixUpImageWithAnnotations(probability=0.75)])
     task = AbnormalClassificationTask(model, train_dl, optim.Adam(model.parameters(), lr=0.0001), backward_agg=BackpropAggregators.MeanLosses)
     task.max_iter = 25000
 
-    val_hook = PeriodicStepFuncHook(20, lambda: task.annotation_validation(val_dl, model))
-    checkpoint_hook = CheckpointHook(5, "retinanet_test3")
+    val_hook = PeriodicStepFuncHook(500, lambda: task.annotation_validation(val_dl, model))
+    checkpoint_hook = CheckpointHook(250, "retinanet_test4", permanent_checkpoints=10000, keep_last_n_checkpoints=5)
 
-    task.register_hook(LogTrainingLoss(frequency=1))
+    task.register_hook(LogTrainingLoss(frequency=20))
     task.register_hook(StepTimer())
     task.register_hook(val_hook)
     task.register_hook(checkpoint_hook)

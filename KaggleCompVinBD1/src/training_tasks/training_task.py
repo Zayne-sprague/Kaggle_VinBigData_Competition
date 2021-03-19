@@ -89,7 +89,7 @@ class SimpleTrainer(TrainingTask):
         batch_size = config.batch_size
 
         try:
-            if config.use_gpu and config.gpu_count > 1:
+            if config.use_gpu and config.gpu_count >= 1:
                 self.model = DistributedModel(model, device_ids=config.devices)
                 self.log.info("Distributing model across GPUs")
 
@@ -113,7 +113,7 @@ class SimpleTrainer(TrainingTask):
         self.collater: Collater = collater
 
         self.data = iter(DataLoader(
-            BufferedShuffleDataset(data, buffer_size=250),
+            BufferedShuffleDataset(data, buffer_size=2500),
             batch_size=batch_size,
             num_workers=4,
             collate_fn=self.collater,
