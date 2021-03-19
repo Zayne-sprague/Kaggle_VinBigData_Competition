@@ -123,7 +123,7 @@ class SimpleTrainer(TrainingTask):
 
         self.backward_agg: BackpropAggregators = backward_agg
 
-    def write_iteration_metrics(self, metrics: dict, data_delta: float, inference_delta: float, back_prop_delta:float, optim_delta:float, step_delta: float):
+    def write_iteration_metrics(self, metrics: dict, data_delta: float, inference_delta: float, back_prop_delta:float, optim_delta:float, step_delta: float, other_metrics: dict):
 
         for key in metrics:
             dims = metrics[key].shape
@@ -140,6 +140,9 @@ class SimpleTrainer(TrainingTask):
         self.storage.put_item("optim_delta", optim_delta)
         self.storage.put_item("step_delta", step_delta)
 
+        for ky in other_metrics:
+            self.storage.put_item(ky, other_metrics[ky])
+
     def step(self):
         assert self.model.training, "Model is in evaluation mode instead of training!"
 
@@ -151,6 +154,7 @@ class SimpleTrainer(TrainingTask):
         data_deltas = []
         inf_deltas = []
         back_prop_deltas = []
+        other_metrics = {}
 
         for _ in range(iters):
 
@@ -165,8 +169,16 @@ class SimpleTrainer(TrainingTask):
 
 
             inf_start = time.perf_counter()
-            loss_dict = self.model(data)['losses']
+            loss_dict = self.model(data)
+            om = loss_dict.get("other_metrics", {})
+            loss_dict = loss_dict['losses']
             inf_deltas.append(time.perf_counter() - inf_start)
+
+            for ky in om:
+                if ky not in other_metrics:
+                    other_metrics[ky] = []
+                other_metrics[ky].append(om[ky])
+
 
             losses = sum(loss_dict.values())
             _losses.append(losses)
@@ -192,7 +204,10 @@ class SimpleTrainer(TrainingTask):
 
         loss_dict = {'loss': torch.tensor(_losses).mean()}
 
-        self.write_iteration_metrics(loss_dict, data_delta=data_delta, inference_delta=inf_delta, back_prop_delta=back_prop_delta, optim_delta=optim_delta, step_delta=time.perf_counter() - step_start)
+        for ky in other_metrics:
+            other_metrics[ky] = sum(other_metrics[ky]) / len(other_metrics[ky])
+
+        self.write_iteration_metrics(loss_dict, data_delta=data_delta, inference_delta=inf_delta, back_prop_delta=back_prop_delta, optim_delta=optim_delta, step_delta=time.perf_counter() - step_start, other_metrics=other_metrics)
 
 
 class DistributedModel(torch.nn.DataParallel):

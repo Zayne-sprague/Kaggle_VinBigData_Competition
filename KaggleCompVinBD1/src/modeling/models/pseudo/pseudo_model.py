@@ -20,6 +20,7 @@ class PseudoModel(BaseModel):
         state = {'preds': self.fc(torch.unsqueeze(data['image'], 1).float())}
         losses = self.loss(state, data)
         state['losses'] = losses
+        state['other_metrics'] = {'test_1_loss': 1, 'test_2_loss': 2}
         return state
 
     def loss(self, predictions: dict, data: dict) -> dict:

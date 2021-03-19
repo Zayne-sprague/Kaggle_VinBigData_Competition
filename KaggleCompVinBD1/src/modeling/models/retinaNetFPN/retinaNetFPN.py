@@ -4,12 +4,11 @@ from torchvision.models.detection.retinanet import RetinaNetHead, RetinaNetClass
 from torchvision.ops import sigmoid_focal_loss
 
 from src.modeling.models.model import BaseModel
-from src.modeling.models.res50.res50 import Res50
+from src.modeling.models.retinaNet.retinaNet import RetinaNet
 from src.utils.hooks import CheckpointHook
 from src.utils.paths import MODELS_DIR
 from src.utils.events import get_event_storage_context
 
-from torchvision.models import resnet50
 
 
 
@@ -18,6 +17,12 @@ class RetinaNetFPN(BaseModel):
         super().__init__(model_name="RetinaNetFPN")
 
         self.m = retinanet_resnet50_fpn(True)
+
+        # TRANSFER BACKBONE
+        self.a = RetinaNet()
+        self.a.load(name=f'retinanet_backbone_test.pth')
+        self.m.backbone = self.a.m.backbone
+        # TRANSFER
 
         # Not my favorite code-- but it will get the job done and is nicer than the duck patch.  It also allows
         # native transfer learning from the torchvision package.
@@ -46,12 +51,8 @@ class RetinaNetFPN(BaseModel):
             print(e)
 
         if self.training:
-            storage = get_event_storage_context()
-            storage.put_item("classification_loss", x['classification'])
-            storage.put_item('bbox_regression_loss', x['bbox_regression'])
-
             loss = (x['classification'] + x['bbox_regression']).mean()
-            out = {'losses': {'loss': loss}}
+            out = {'losses': {'loss': loss}, 'other_metrics': {'classifiction_loss': x['classification'].item(), 'bbox_regression_loss': x['bbox_regression'].item()}}
 
             return out
         else:
