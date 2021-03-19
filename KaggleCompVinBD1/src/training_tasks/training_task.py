@@ -1,6 +1,6 @@
 import torch
 from torch import optim
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, BufferedShuffleDataset
 
 from typing import List, Optional
 import logging
@@ -113,10 +113,10 @@ class SimpleTrainer(TrainingTask):
         self.collater: Collater = collater
 
         self.data = iter(DataLoader(
-            data,
+            BufferedShuffleDataset(data, buffer_size=250),
             batch_size=batch_size,
             num_workers=4,
-            collate_fn=self.collater
+            collate_fn=self.collater,
         ))
 
         self.optimizer: optim.Optimizer = optimizer
