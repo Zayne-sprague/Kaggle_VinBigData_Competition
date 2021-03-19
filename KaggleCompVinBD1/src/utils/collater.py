@@ -27,8 +27,11 @@ class SimpleCollater(Collater):
 
             batch = {'image': image, 'label': label}
         elif 'annotations' in batch[0]:
-            annotations = [{'boxes': torch.tensor(x['annotations']['boxes']),
-                            'labels': torch.tensor(x['annotations']['labels'], dtype=torch.float)} for x in batch]
+            annotations = [{
+                'boxes': torch.tensor(x['annotations']['boxes']),
+                'labels': torch.tensor(x['annotations']['labels'], dtype=torch.float),
+                'category_ids': [] if 'category_ids' not in x['annotations'] else torch.tensor(x['annotations']['category_ids'])
+            } for x in batch]
 
             batch = {'image': image, 'annotations': annotations}
 

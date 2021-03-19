@@ -6,6 +6,7 @@ from src.utils.cacher import cache
 from src import is_record_healthy
 from src import Classifications
 
+
 class TrainingAbnormalDataSet(TrainingDataSet):
 
     def load_records(self, keep_annotations=False):

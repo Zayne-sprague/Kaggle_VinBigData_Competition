@@ -171,7 +171,7 @@ class TrainingDataSet(IterableDataset):
         parts = random_split(self, partition_counts)
         for part in parts:
             dl = type(readin_annotation_data=False, readin_meta_data=False)
-            dl.records = part
+            dl.records = np.array(self.records)[part.indices].tolist()
             dl.meta_data = self.meta_data
             dl.annotation_data = self.annotation_data
             dl.__annotated__ = self.__annotated__

@@ -16,7 +16,7 @@ class MixUpImage(Augmentor):
         # TODO - No need for a loop, need some fancy matrix algebra since they are already tensors :)
         ln = len(batch['image'])
         for idx in range(ln):
-            if random.random() > 0.5:
+            if random.random() > self.probability:
                 idx2 = random.randint(0, ln-1)
 
                 # TODO - check to see if we really need to clone... is this really effecting the records object from the dataset class?
@@ -43,7 +43,7 @@ class MixUpImageWithAnnotations(Augmentor):
         # TODO - No need for a loop, need some fancy matrix algebra since they are already tensors :)
         ln = len(batch['image'])
         for idx in range(ln):
-            if random.random() > -0.5:
+            if random.random() > self.probability:
                 idx2 = random.randint(0, ln-1)
 
                 # TODO - check to see if we really need to clone... is this really effecting the records object from the dataset class?
