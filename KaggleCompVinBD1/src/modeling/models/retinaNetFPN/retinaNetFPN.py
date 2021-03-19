@@ -7,6 +7,7 @@ from src.modeling.models.model import BaseModel
 from src.modeling.models.res50.res50 import Res50
 from src.utils.hooks import CheckpointHook
 from src.utils.paths import MODELS_DIR
+from src.utils.events import get_event_storage_context
 
 from torchvision.models import resnet50
 
@@ -41,6 +42,10 @@ class RetinaNetFPN(BaseModel):
         x = self.m(x, annotations)
 
         if self.training:
+            storage = get_event_storage_context()
+            storage.put_item("classification_loss", x['classification'])
+            storage.put_item('bbox_regression_loss', x['bbox_regression'])
+
             loss = (x['classification'] + x['bbox_regression']).mean()
             out = {'losses': {'loss': loss}}
 

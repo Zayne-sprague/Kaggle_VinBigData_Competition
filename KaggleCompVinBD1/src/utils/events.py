@@ -4,11 +4,6 @@ from typing import List, Optional
 
 _EVENT_STORAGE_CONTEXTS = []
 
-
-def get_event_storage_context():
-    return _EVENT_STORAGE_CONTEXTS[-1]
-
-
 class EventStorage:
 
     def __init__(self):
@@ -44,3 +39,7 @@ class EventStorage:
     def __exit__(self, exc_type, exc_val, exc_tb):
         assert _EVENT_STORAGE_CONTEXTS[-1] == self, "Event Storage Stack out of order!"
         _EVENT_STORAGE_CONTEXTS.pop()
+
+
+def get_event_storage_context() -> EventStorage:
+    return _EVENT_STORAGE_CONTEXTS[-1]

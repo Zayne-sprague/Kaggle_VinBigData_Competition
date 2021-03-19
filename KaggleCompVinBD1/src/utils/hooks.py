@@ -219,4 +219,12 @@ class LogTrainingLoss(PeriodicStepHook):
         step_delta: float = sum(self.trainer.storage.find_item("step_delta", self.frequency)) / self.frequency
         back_prop_delta: float = sum(self.trainer.storage.find_item("back_prop_delta", self.frequency)) / self.frequency
 
-        training_log.info(f"Step {self.trainer.iter}, average loss {loss_item:.8f}, average data delta {data_delta:.8f}s, average inf delta: {inference_delta:.8f}s, average back prop delta: {back_prop_delta:.8f}s, average delta for step: {step_delta:.8f}s")
+        loss_items = []
+        for key in self.trainer.storage.events:
+            if str(key).endswith("_loss"):
+                loss_items.append([key, sum(self.trainer.storage.find_item(key, self.frequency)) / self.frequency])
+
+        loss_string = f'average loss {loss_item:.4f},'
+        for item in loss_items:
+            loss_string += f' average {item[0]} {item[1]:.4f},'
+        training_log.info(f"Step {self.trainer.iter}, {loss_string} average data delta {data_delta:.4f}s, average inf delta: {inference_delta:.4f}s, average back prop delta: {back_prop_delta:.4f}s, average delta for step: {step_delta:.4f}s")
