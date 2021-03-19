@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch.nn import functional as F
 from torchvision.models.detection import retinanet_resnet50_fpn
 from torchvision.models.detection.retinanet import RetinaNetHead, RetinaNetClassificationHead
 from torchvision.ops import sigmoid_focal_loss
@@ -86,7 +87,7 @@ class RetinaNet(BaseModel):
             # compute the losses
             losses = self.m.head.compute_loss(labels, head_outputs)
         else:
-            detections = head_outputs['cls_logits'].mean(1)
+            detections = head_outputs['cls_logits'].exp()
 
         if torch.jit.is_scripting():
             if not self.m._has_warned:
@@ -145,16 +146,25 @@ class WholeImageRetinaNetClassificationHead(nn.Module):
         torch.nn.init.normal_(self.cls_logits.weight, std=0.01)
         torch.nn.init.constant_(self.cls_logits.bias, -math.log((1 - prior_probability) / prior_probability))
 
+        self.fc1 = nn.Linear(26686, 1000)
+        self.fc2 = nn.Linear(1000, 2)
+        self.lsoft = nn.LogSoftmax(dim=-1)
+
+        self.criterion = NLLLossOHE()
+
         self.num_classes = num_classes
 
     def compute_loss(self, targets, head_outputs):
-        cls_logits = head_outputs['cls_logits'].mean(1)
+
+        cls_logits = head_outputs['cls_logits']
         loss = NLLLossOHE()(cls_logits, targets)
 
         return loss
 
     def forward(self, x):
         all_cls_logits = []
+
+        batch_size = x[0].shape[0]
 
         for features in x:
             cls_logits = self.conv(features)
@@ -168,7 +178,13 @@ class WholeImageRetinaNetClassificationHead(nn.Module):
 
             all_cls_logits.append(cls_logits)
 
-        return torch.cat(all_cls_logits, dim=1)
+        x = torch.cat(all_cls_logits, dim=1)
+        x = x.view([batch_size, -1])
+        x = self.fc1(x)
+        x = self.fc2(x)
+        predictions = self.lsoft(x)
+
+        return predictions
 
 
 
@@ -191,7 +207,7 @@ if __name__ == "__main__":
     task = AbnormalClassificationTask(model, train_dl, optim.Adam(model.parameters(), lr=0.0001), backward_agg=BackpropAggregators.MeanLosses)
     task.max_iter = 25000
 
-    val_hook = PeriodicStepFuncHook(2, lambda: task.validation(val_dl, model))
+    val_hook = PeriodicStepFuncHook(1, lambda: task.validation(val_dl, model))
     checkpoint_hook = CheckpointHook(5, "retinanet_backbone_test")
 
     task.register_hook(LogTrainingLoss(frequency=1))
