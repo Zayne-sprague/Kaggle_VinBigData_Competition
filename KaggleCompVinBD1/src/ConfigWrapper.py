@@ -28,6 +28,7 @@ class ConfigWrapper:
         self.include_records_without_annotations: bool = strtobool(os.environ.get("include_records_without_annotations", False))
 
         self.batch_size: int = int(os.environ.get("batch_size", 16))
+        self.artificial_batch_size: int = int(os.environ.get("artificial_batch_size", 256))
 
         self.gpu_count: int = int(os.environ.get("GPU_COUNT", 0))
         self.one_gpu_for_validation: bool = strtobool(os.environ.get("HOLD_ONE_GPU_FOR_VALIDATION", False))

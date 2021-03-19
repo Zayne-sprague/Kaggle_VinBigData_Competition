@@ -216,6 +216,7 @@ class LogTrainingLoss(PeriodicStepHook):
         loss_item: float = sum(self.trainer.storage.find_item("loss", self.frequency)) / self.frequency
         data_delta: float = sum(self.trainer.storage.find_item("data_delta", self.frequency)) / self.frequency
         inference_delta: float = sum(self.trainer.storage.find_item("inference_delta", self.frequency)) / self.frequency
+        optim_delta: float = sum(self.trainer.storage.find_item("optim_delta", self.frequency)) / self.frequency
         step_delta: float = sum(self.trainer.storage.find_item("step_delta", self.frequency)) / self.frequency
         back_prop_delta: float = sum(self.trainer.storage.find_item("back_prop_delta", self.frequency)) / self.frequency
 
@@ -224,7 +225,7 @@ class LogTrainingLoss(PeriodicStepHook):
             if str(key).endswith("_loss"):
                 loss_items.append([key, sum(self.trainer.storage.find_item(key, self.frequency)) / self.frequency])
 
-        loss_string = f'average loss {loss_item:.4f},'
+        loss_string = f'loss {loss_item:.4f},'
         for item in loss_items:
-            loss_string += f' average {item[0]} {item[1]:.4f},'
-        training_log.info(f"Step {self.trainer.iter}, {loss_string} average data delta {data_delta:.4f}s, average inf delta: {inference_delta:.4f}s, average back prop delta: {back_prop_delta:.4f}s, average delta for step: {step_delta:.4f}s")
+            loss_string += f' {item[0]} {item[1]:.4f},'
+        training_log.info(f"Step {self.trainer.iter}, {loss_string} data delta {data_delta:.4f}s, inf delta: {inference_delta:.4f}s, back prop delta: {back_prop_delta:.4f}s, optim delta: {optim_delta:.4f}s, delta for step: {step_delta:.4f}s")

@@ -123,7 +123,7 @@ class SimpleTrainer(TrainingTask):
 
         self.backward_agg: BackpropAggregators = backward_agg
 
-    def write_iteration_metrics(self, metrics: dict, data_delta: float, inference_delta: float, back_prop_delta:float, step_delta: float):
+    def write_iteration_metrics(self, metrics: dict, data_delta: float, inference_delta: float, back_prop_delta:float, optim_delta:float, step_delta: float):
 
         for key in metrics:
             dims = metrics[key].shape
@@ -137,41 +137,62 @@ class SimpleTrainer(TrainingTask):
         self.storage.put_item("data_delta", data_delta)
         self.storage.put_item("inference_delta", inference_delta)
         self.storage.put_item("back_prop_delta", back_prop_delta)
+        self.storage.put_item("optim_delta", optim_delta)
         self.storage.put_item("step_delta", step_delta)
 
     def step(self):
         assert self.model.training, "Model is in evaluation mode instead of training!"
 
-        data_start = time.perf_counter()
-        data: dict = next(self.data)
-        for ky, val in data.items():
-            # If we can, try to load up the batched data into the device (try to only send what is needed)
-            if isinstance(data[ky], torch.Tensor):
-                data[ky] = data[ky].to(config.devices[0])
+        step_start = time.perf_counter()
 
-        data_delta = time.perf_counter() - data_start
+        iters = (config.artificial_batch_size // config.batch_size)
 
-        inf_start = time.perf_counter()
-        loss_dict = self.model(data)['losses']
-        inf_delta = time.perf_counter() - inf_start
+        _losses = []
+        data_deltas = []
+        inf_deltas = []
+        back_prop_deltas = []
 
-        losses = sum(loss_dict.values())
+        for _ in range(iters):
 
-        self.optimizer.zero_grad()
+            data_start = time.perf_counter()
+            data: dict = next(self.data)
+            for ky, val in data.items():
+                # If we can, try to load up the batched data into the device (try to only send what is needed)
+                if isinstance(data[ky], torch.Tensor):
+                    data[ky] = data[ky].to(config.devices[0])
 
-        back_prop_start = time.perf_counter()
+            data_deltas.append(time.perf_counter() - data_start)
 
-        if self.backward_agg == BackpropAggregators.IndividualBackprops:
-            losses.backward(torch.ones_like(losses))
-        elif self.backward_agg == BackpropAggregators.MeanLosses:
-            losses.mean().backward()
-        else:
-            losses.backward()
 
+            inf_start = time.perf_counter()
+            loss_dict = self.model(data)['losses']
+            inf_deltas.append(time.perf_counter() - inf_start)
+
+            losses = sum(loss_dict.values())
+            _losses.append(losses)
+
+            back_prop_start = time.perf_counter()
+
+            if self.backward_agg == BackpropAggregators.IndividualBackprops:
+                losses.backward(torch.ones_like(losses))
+            elif self.backward_agg == BackpropAggregators.MeanLosses:
+                losses.mean().backward()
+            else:
+                losses.backward()
+            back_prop_deltas.append(time.perf_counter() - back_prop_start)
+
+        optim_step_start = time.perf_counter()
         self.optimizer.step()
-        back_prop_delta = time.perf_counter() - back_prop_start
+        self.optimizer.zero_grad()
+        optim_delta = time.perf_counter() - optim_step_start
 
-        self.write_iteration_metrics(loss_dict, data_delta=data_delta, inference_delta=inf_delta, back_prop_delta=back_prop_delta, step_delta=time.perf_counter() - data_start)
+        data_delta = sum(data_deltas) / len(data_deltas)
+        inf_delta = sum(inf_deltas) / len(inf_deltas)
+        back_prop_delta = sum(back_prop_deltas) / len(back_prop_deltas)
+
+        loss_dict = {'loss': torch.tensor(_losses).mean()}
+
+        self.write_iteration_metrics(loss_dict, data_delta=data_delta, inference_delta=inf_delta, back_prop_delta=back_prop_delta, optim_delta=optim_delta, step_delta=time.perf_counter() - step_start)
 
 
 class DistributedModel(torch.nn.DataParallel):
