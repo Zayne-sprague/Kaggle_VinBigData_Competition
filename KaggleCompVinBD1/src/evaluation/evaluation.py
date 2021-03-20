@@ -40,7 +40,8 @@ def main(submission_file_name, model_one_name, model_two_name):
 
 
     predictions = []
-    for _ in tqdm(range(total), total=total, desc='Creating Predictions'):
+    for i in tqdm(range(total), total=total, desc='Creating Predictions'):
+
         batch = next(dataloader)
         for ky, val in batch.items():
             # If we can, try to load up the batched data into the device (try to only send what is needed)
@@ -67,7 +68,7 @@ def main(submission_file_name, model_one_name, model_two_name):
             ])
 
     with open(f'{SUBMISSIONS_DIR}/{submission_file_name}.csv', 'w+') as submission:
-        submission_writer = csv.writer(submission, delimiter=',', quotechar=' ', quoting=csv.QUOTE_MINIMAL)
+        submission_writer = csv.writer(submission, delimiter=',')
 
         submission_writer.writerow(['ID', 'TARGET'])
         submission_writer.writerows(predictions)
