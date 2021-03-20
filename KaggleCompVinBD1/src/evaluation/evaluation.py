@@ -47,7 +47,7 @@ def main(submission_file_name, model_one_name, model_two_name):
             if isinstance(batch[ky], torch.Tensor):
                 batch[ky] = batch[ky].to(config.devices[0])
 
-        id = batch['image_id']
+        id = batch['image_id'][0]
 
         w, h = batch['width'], batch['height']
 
@@ -60,22 +60,19 @@ def main(submission_file_name, model_one_name, model_two_name):
 
             pred_string = ''
             for p_idx in range(len(pred['boxes'])):
-                pred_string += f"{pred['labels'][p_idx].item()} {pred['scores'][p_idx].item()} {int(pred['boxes'][p_idx][0].item() / 256.0 * w)} {int(pred['boxes'][p_idx][1].item() / 256.0 * h)} {int(pred['boxes'][p_idx][2].item() / 256.0 * w)}, {int(pred['boxes'][p_idx][3].item() / 256.0 * h)} "
+                pred_string += f'{pred["labels"][p_idx].item()} {pred["scores"][p_idx].item()} {int(pred["boxes"][p_idx][0].item() / 256.0 * w)} {int(pred["boxes"][p_idx][1].item() / 256.0 * h)} {int(pred["boxes"][p_idx][2].item() / 256.0 * w)} {int(pred["boxes"][p_idx][3].item() / 256.0 * h)} '
 
             predictions.append([
                 id, pred_string
             ])
 
-
-
     with open(f'{SUBMISSIONS_DIR}/{submission_file_name}.csv', 'w+') as submission:
-        submission_writer = csv.writer(submission, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        submission_writer.writerow(['ID', 'TARGET'])
+        submission_writer = csv.writer(submission, delimiter=',', quotechar=' ', quoting=csv.QUOTE_MINIMAL)
 
-        for pred in predictions:
-           submission_writer.writerow(pred)
+        submission_writer.writerow(['ID', 'TARGET'])
+        submission_writer.writerows(predictions)
 
     log.info(f"Evaluation completed, submission wrote out {len(predictions)} predictions to {SUBMISSIONS_DIR}/{submission_file_name}.csv")
 
 if __name__:
-    main("submission_test_1", 'retinanet_backbone_test', 'retinaNetEnsemble_FullTestOne')
+    main("submission_test_1", 'retinaFpnBackbone_realTestone@15000', 'retinaNetEnsemble_FullTestTwo')
