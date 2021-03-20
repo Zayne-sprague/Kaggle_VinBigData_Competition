@@ -71,7 +71,7 @@ def main(submission_file_name, model_one_name, model_two_name):
     with open(f'{SUBMISSIONS_DIR}/{submission_file_name}.csv', 'w+') as submission:
         submission_writer = csv.writer(submission, delimiter=',')
 
-        submission_writer.writerow(['ID', 'TARGET'])
+        submission_writer.writerow(['image_id', 'PredictionString'])
         submission_writer.writerows(predictions)
 
     log.info(f"Evaluation completed, submission wrote out {len(predictions)} predictions to {SUBMISSIONS_DIR}/{submission_file_name}.csv")
