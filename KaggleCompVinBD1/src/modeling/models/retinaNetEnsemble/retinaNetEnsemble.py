@@ -21,13 +21,13 @@ import math
 
 class RetinaNetEnsemble(BaseModel):
     def __init__(self):
-        super().__init__(model_name="RetinaNet")
+        super().__init__(model_name="RetinaNetEnsemble")
 
         self.m = retinanet_resnet50_fpn(True, trainable_backbone_layers=5)
 
         # TRANSFER BACKBONE
         self.a = RetinaNet()
-        self.a.load(name=f'retinanet_backbone_test.pth')
+        self.a.load(name=f'retinaFpnBackbone_realTestone@15000')
         self.m.backbone = self.a.m.backbone
         # TRANSFER
 
@@ -51,16 +51,21 @@ class RetinaNetEnsemble(BaseModel):
         if self.training:
             targets = data['annotations']
 
-            x = self.m(x, targets)
+            try:
+                x = self.m(x, targets)
+            except Exception as e:
+                self.log.critical(f"ERROR in model forward: {e}")
+                return {'error': True}
 
-            loss = x['classification']
-            out = {'losses': {'loss': loss}}
+            loss = (x['classification'] + x['bbox_regression']).mean()
+            out = {'losses': {'loss': loss}, 'other_metrics': {'classifiction_loss': x['classification'].item(), 'bbox_regression_loss': x['bbox_regression'].item()}}
 
             return out
         else:
             x = self.m(x)
 
             return {'preds': x}
+
 
 class MultiClassRetinaHead(torch.nn.Module):
 
@@ -138,17 +143,17 @@ if __name__ == "__main__":
     dataloader = TrainingMulticlassDataset()
     dataloader.load_records()
 
-    train_dl, val_dl = dataloader.partition_data([0.95, 0.05], TrainingMulticlassDataset)
+    train_dl, val_dl = dataloader.partition_data([0.75, 0.25], TrainingMulticlassDataset)
 
     batch_aug = BatchAugmenter()
     batch_aug.compose([MixUpImageWithAnnotations(probability=0.75)])
     task = MulticlassDetectionTask(model, train_dl, optim.Adam(model.parameters(), lr=0.0001), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
     task.max_iter = 25000
 
-    val_hook = PeriodicStepFuncHook(4, lambda: task.validation(val_dl, model))
-    checkpoint_hook = CheckpointHook(1, "retinaNetEnsemble_FullTestOne", permanent_checkpoints=5000, keep_last_n_checkpoints=5)
+    val_hook = PeriodicStepFuncHook(500, lambda: task.validation(val_dl, model))
+    checkpoint_hook = CheckpointHook(250, "retinaNetEnsemble_FullTestTwo", permanent_checkpoints=5000, keep_last_n_checkpoints=5)
 
-    task.register_hook(LogTrainingLoss(frequency=1))
+    task.register_hook(LogTrainingLoss(frequency=20))
     task.register_hook(StepTimer())
     task.register_hook(val_hook)
     task.register_hook(checkpoint_hook)

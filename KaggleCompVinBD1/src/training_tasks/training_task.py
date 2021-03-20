@@ -156,7 +156,8 @@ class SimpleTrainer(TrainingTask):
         back_prop_deltas = []
         other_metrics = {}
 
-        for _ in range(iters):
+        i = 0
+        while i < iters:
 
             data_start = time.perf_counter()
             data: dict = next(self.data)
@@ -165,14 +166,19 @@ class SimpleTrainer(TrainingTask):
                 if isinstance(data[ky], torch.Tensor):
                     data[ky] = data[ky].to(config.devices[0])
 
-            data_deltas.append(time.perf_counter() - data_start)
+            dd = time.perf_counter() - data_start
 
 
             inf_start = time.perf_counter()
             loss_dict = self.model(data)
+
+            if 'error' in loss_dict and loss_dict['error']:
+                continue
+
             om = loss_dict.get("other_metrics", {})
             loss_dict = loss_dict['losses']
             inf_deltas.append(time.perf_counter() - inf_start)
+            data_deltas.append(dd)
 
             for ky in om:
                 if ky not in other_metrics:
@@ -192,6 +198,8 @@ class SimpleTrainer(TrainingTask):
             else:
                 losses.backward()
             back_prop_deltas.append(time.perf_counter() - back_prop_start)
+
+            i += 1
 
         optim_step_start = time.perf_counter()
         self.optimizer.step()

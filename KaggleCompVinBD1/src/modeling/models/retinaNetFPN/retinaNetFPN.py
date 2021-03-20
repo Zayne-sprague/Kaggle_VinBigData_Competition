@@ -20,7 +20,7 @@ class RetinaNetFPN(BaseModel):
 
         # TRANSFER BACKBONE
         self.a = RetinaNet()
-        self.a.load(name=f'retinanet_backbone_test.pth')
+        self.a.load(name=f'retinaFpnBackbone_realTestone@15000.pth')
         self.m.backbone = self.a.m.backbone
         # TRANSFER
 
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     task.max_iter = 25000
 
     val_hook = PeriodicStepFuncHook(500, lambda: task.annotation_validation(val_dl, model))
-    checkpoint_hook = CheckpointHook(250, "retinanet_test4", permanent_checkpoints=10000, keep_last_n_checkpoints=5)
+    checkpoint_hook = CheckpointHook(250, "retinanet_abnormalFinder_realTestOne", permanent_checkpoints=5000, keep_last_n_checkpoints=5)
 
     task.register_hook(LogTrainingLoss(frequency=20))
     task.register_hook(StepTimer())
