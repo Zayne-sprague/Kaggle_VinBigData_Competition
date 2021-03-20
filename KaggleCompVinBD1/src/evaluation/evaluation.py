@@ -49,7 +49,7 @@ def main(submission_file_name, model_one_name, model_two_name):
 
         id = batch['image_id'][0]
 
-        w, h = batch['width'], batch['height']
+        w, h = batch['orig_w'][0].item(), batch['orig_h'][0].item()
 
         healthy_or_abnormal = torch.argmax(model_one(batch)['preds'], dim=1).tolist()
         if healthy_or_abnormal[0] == 1:

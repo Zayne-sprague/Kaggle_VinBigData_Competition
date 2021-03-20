@@ -267,7 +267,9 @@ class TestingDataLoader(TrainingDataSet):
                 'file_name': str(self.image_dir / f'{image_id}'),
                 'image_id': image_id,
                 'height': self.image_size,
-                'width': self.image_size
+                'width': self.image_size,
+                'orig_h': im_height,
+                'orig_w': im_width
             }
 
             records.append(record)
