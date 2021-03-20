@@ -13,11 +13,12 @@ from tqdm import tqdm
 import logging
 from itertools import cycle
 
-from src.utils.paths import TRAINING_ANNOTATION_DATA, TRAIN_META_DATA, CONVERTED_VBD_DICOM_DATA_FOLDER
+from src.utils.paths import TRAINING_ANNOTATION_DATA, TRAIN_META_DATA, CONVERTED_VBD_DICOM_DATA_FOLDER, TEST_META_DATA
 from src.utils.cacher import cache
 from src import config, dl_log, Classifications
 
 __NUM_OF_IMGS_WITH_DEBUG__ = 1250
+__NUM_OF_TEST_IMGS_WITH_DEBUG__ = 25
 
 
 #https://medium.com/speechmatics/how-to-build-a-streaming-dataloader-with-pytorch-a66dd891d9dd
@@ -187,8 +188,96 @@ class TrainingDataSet(IterableDataset):
         raise NotImplementedError()
 
 
-class TestingDataLoader:
-    pass
+class TestingDataLoader(TrainingDataSet):
+
+    # Base class for data loaders
+
+    def __init__(self, readin_meta_data=True):
+        super().__init__(readin_annotation_data=False, readin_meta_data=False)
+
+        if readin_meta_data:
+            self.meta_data: pd.DataFrame = pd.read_csv(TEST_META_DATA)
+        else:
+            self.meta_data = None
+
+        if self.debug and readin_meta_data:
+            self.meta_data = self.meta_data.iloc[:__NUM_OF_TEST_IMGS_WITH_DEBUG__]
+
+        self.__annotated__ = True
+        self.image_dir: Path = CONVERTED_VBD_DICOM_DATA_FOLDER / f'{self.image_size}' / 'test'
+
+        self.records = None
+
+    def __records_check__(self):
+        if not self.records:
+            self.log.error("Attempted to access data loaders records without loading them first!")
+            raise Exception("Load records for dataloader before accessing them")
+
+    def __len__(self):
+        self.__records_check__()
+        return len(self.records)
+
+    def __getitem__(self, idx):
+        self.__records_check__()
+
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        record = self.records[idx]
+
+        if 'filename' in record:
+            image = io.imread(record['file_name'] + '.png')
+
+            record['image'] = image
+        else:
+            record['image'] = 0
+
+        return record
+
+    def process_data(self, data):
+        for x in data:
+            if 'file_name' in x:
+                x['image'] = io.imread(x['file_name'] + '.png')
+
+            yield x
+
+    def __get_stream__(self, data):
+        return cycle(self.process_data(data))
+
+    def __iter__(self):
+        self.__records_check__()
+
+        return self.__get_stream__(self.records)
+
+    def load_records(self):
+        self.records = self.__load_records__()
+        return self.records
+
+    @cache(prefix="test_base_")
+    def __load_records__(self):
+
+        self.log.info("Loading records")
+
+        records = []
+
+        for index, meta_data_row in tqdm(self.meta_data.iterrows(), total=len(self.meta_data)):
+            image_id, im_height, im_width = meta_data_row.values
+
+            record = {
+                'file_name': str(self.image_dir / f'{image_id}'),
+                'image_id': image_id,
+                'height': self.image_size,
+                'width': self.image_size
+            }
+
+            records.append(record)
+
+        self.log.info("Finished loading records")
+
+        self.records = records
+        return records
+
+
 
 
 def get_img_dims(

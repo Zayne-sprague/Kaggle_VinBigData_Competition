@@ -37,7 +37,6 @@ class RetinaNetEnsemble(BaseModel):
 
     def forward(self, data: dict) -> dict:
         x = data['image']
-        targets = data['annotations']
 
         batch_size = x.shape[0]
         x = torch.unsqueeze(x, -1)
@@ -48,14 +47,19 @@ class RetinaNetEnsemble(BaseModel):
         # So... this sucks... may have to find a pretrained resnet on grayscale or do it myself which seems unreasonable
         x = x.repeat(1, 3, 1, 1)
 
-        x = self.m(x, targets)
 
         if self.training:
+            targets = data['annotations']
+
+            x = self.m(x, targets)
+
             loss = x['classification']
             out = {'losses': {'loss': loss}}
 
             return out
         else:
+            x = self.m(x)
+
             return {'preds': x}
 
 class MultiClassRetinaHead(torch.nn.Module):
@@ -141,8 +145,8 @@ if __name__ == "__main__":
     task = MulticlassDetectionTask(model, train_dl, optim.Adam(model.parameters(), lr=0.0001), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
     task.max_iter = 25000
 
-    val_hook = PeriodicStepFuncHook(1, lambda: task.validation(val_dl, model))
-    checkpoint_hook = CheckpointHook(100, "retinaNetEnsemble_FullTestOne", permanent_checkpoints=5000, keep_last_n_checkpoints=5)
+    val_hook = PeriodicStepFuncHook(4, lambda: task.validation(val_dl, model))
+    checkpoint_hook = CheckpointHook(1, "retinaNetEnsemble_FullTestOne", permanent_checkpoints=5000, keep_last_n_checkpoints=5)
 
     task.register_hook(LogTrainingLoss(frequency=1))
     task.register_hook(StepTimer())

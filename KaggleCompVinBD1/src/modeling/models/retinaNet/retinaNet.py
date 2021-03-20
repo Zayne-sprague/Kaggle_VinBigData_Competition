@@ -32,7 +32,8 @@ class RetinaNet(BaseModel):
 
     def forward(self, data: dict) -> dict:
         x = data['image']
-        labels = data['label']
+
+
 
         batch_size = x.shape[0]
         x = torch.unsqueeze(x, -1)
@@ -47,17 +48,20 @@ class RetinaNet(BaseModel):
         # for idx, annotation in enumerate(annotations):
         #     annotations[idx]['labels'] = torch.argmax(annotation['labels'], 1)
         # x = self.m(x)
-        x = self.retina_forward(x, labels)
 
         if self.training:
+            labels = data['label']
+            x = self.retina_forward(x, labels)
+
             loss = x['classification']
             out = {'losses': {'loss': loss}}
 
             return out
         else:
+            x = self.retina_forward(x)
             return {'preds': x}
 
-    def retina_forward(self, images, labels):
+    def retina_forward(self, images, labels=None):
         # get the original image sizes
         original_image_sizes = []
         for img in images:

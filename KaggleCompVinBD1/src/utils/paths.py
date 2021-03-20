@@ -10,6 +10,7 @@ CACHE_DIR = __CURR_DIR__ / "../../../caches"
 MODELS_DIR = __CURR_DIR__ / "../../../models"
 DETECTRON_OUTPUT_DIR = __CURR_DIR__ / '../../../detectron_outputs'
 DATA = __CURR_DIR__ / "../../../data"
+SUBMISSIONS_DIR = __CURR_DIR__ / "../../../submissions"
 
 TRAINING_ANNOTATION_DATA = DATA / "vbd_rawdata/train.csv"
 

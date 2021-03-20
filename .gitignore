@@ -3,6 +3,7 @@ models/*
 data/*
 caches/*
 detectron_outputs/*
+submissions/*
 
 venv
 

@@ -1,7 +1,7 @@
 from tqdm import tqdm
 from tabulate import tabulate
 
-from src.data.data_set import TrainingDataSet
+from src.data.data_set import TrainingDataSet, TestingDataLoader
 from src.utils.cacher import cache
 from src import Classifications
 from src import config
@@ -75,3 +75,33 @@ class TrainingMulticlassDataset(TrainingDataSet):
 
         self.log.info(f'\n-- Abnormal DataSet Metrics --\n{tabulate(table, headers=["Type", second_row_title])}')
 
+
+class TestingMulticlassDataset(TestingDataLoader):
+
+    def load_records(self):
+        self.records = self.__load_records__()
+        return self.records
+
+    @cache(prefix="test_multiclass_")
+    def __load_records__(self):
+        records = super().__load_records__()
+        return records
+
+
+    def build_metrics(self, records):
+        stats = {'total': len(records)}
+        return stats
+
+    def get_metrics(self) -> dict:
+        self.stats = self.build_metrics(self.records)
+        return self.stats
+
+
+    def display_metrics(self, metrics: dict) -> None:
+        table = []
+        for ky in metrics:
+            table.append([ky, metrics[ky]])
+
+        second_row_title = 'Number of Examples'
+
+        self.log.info(f'\n-- Abnormal DataSet Metrics --\n{tabulate(table, headers=["Type", second_row_title])}')
