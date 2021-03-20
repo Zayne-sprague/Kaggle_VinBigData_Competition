@@ -26,10 +26,12 @@ def main(submission_file_name):
     ))
 
     model_one = RetinaNet()
+    model_one.to(config.devices[0])
     model_one.load("retinanet_backbone_test")
     model_one.eval()
 
     model_two = RetinaNetEnsemble()
+    model_two.to(config.devices[0])
     model_two.load("retinaNetEnsemble_FullTestOne")
     model_two.eval()
 
@@ -40,6 +42,10 @@ def main(submission_file_name):
     predictions = []
     for _ in tqdm(range(total), total=total, desc='Creating Predictions'):
         batch = next(dataloader)
+        for ky, val in batch.items():
+            # If we can, try to load up the batched data into the device (try to only send what is needed)
+            if isinstance(batch[ky], torch.Tensor):
+                batch[ky] = batch[ky].to(config.devices[0])
 
         id = batch['image_id']
 
