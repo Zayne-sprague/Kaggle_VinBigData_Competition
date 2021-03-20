@@ -44,3 +44,11 @@ Nice to haves (things in the backlog*)
 - [x] ResNet / RetinaNet implementations that scale
 - [x] CUDA implementation with env files
 - [ ] Finish the custom Resnet model because its cool
+
+
+Submission text
+-
+
+My first kaggle competition submission!
+
+These predictions are from 2 retina based models.  One being a binary classifier with a custom classification head, used to determine if the image is healthy or abnormal.  THe second model is for when the image is abnormal, using a traditional retina model, classifies the abnormalities and their locations.  Trained locally on 2 980tis for 6hours total

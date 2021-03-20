@@ -42,6 +42,7 @@ def main(submission_file_name, model_one_name, model_two_name):
     predictions = []
     for i in tqdm(range(total), total=total, desc='Creating Predictions'):
 
+
         batch = next(dataloader)
         for ky, val in batch.items():
             # If we can, try to load up the batched data into the device (try to only send what is needed)
