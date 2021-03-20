@@ -1,9 +1,7 @@
 First Kaggle Competition for VinBigData
 
-Goal:
+[COMPLETED] PreTraining Goals:
 - 
-
-- [ ] Explore Torch Lightening
 
 - [x] Rebuild the ResNet 50 model ( backbone for the detectron2 model )
     - [x] Find 256px Grayscale pretrained resnet-50 weights, someone has to have it
@@ -11,19 +9,24 @@ Goal:
       - [x] Add hooks to training tasks for visualizations
 - [x] Train ResNet model 
 - [x] Load weights into detectron2 res-50-fpn model and train (might use my model over detectrons)
-    - [ ] Create a method of mapping weights between models [ currently working on this ]
-    - [ ] Fix Mix Up 
-        - [ ] Refactor out for loop
-        - [ ] Overlapping mixup check
-        - [ ] Increase likelyhood of interesting mixups
-    - [ ] Optimize memory performance (torch lightening?)
-    - [ ] Better Loss Logging for Retina
-    - [ ] Create custom retina classification head (instead of duck patch)
-    - [ ] Fix Validation for Retina to be faster/cleaner in logs
-        - [ ] Create custom mAP metrics (better understand it, but also verifies implementation)
+    - [x] Create a method of mapping weights between models 
+    - [x] Fix Mix Up 
+        - [x] Overlapping mixup check
+        - [x] Increase likelyhood of interesting mixups
+    - [x] Better Loss Logging for Retina
+    - [x] Create custom retina classification head (instead of duck patch)
     - [x] Fix Batch Augmentation
-- [ ] Create ResNet50 FPN model w/ classifiers per class (weights from detectron)
-- [ ] Ensemble the two models, custom resnet 50 model and detectron to classify if an abnormality is present then find the bounding box for said abnormality respectively
+- [x] Create ResNet50 FPN model w/ classifiers per class (weights from detectron)
+- [x] Ensemble the two models, custom resnet 50 model and detectron to classify if an abnormality is present then find the bounding box for said abnormality respectively
+
+
+Training Goals
+- 
+
+####_Current Kaggle Score 0.052_
+
+- [ ] Explore ways to enhance the model [ Currently Working on This ]
+
 
 Hypothesis:
 - 
