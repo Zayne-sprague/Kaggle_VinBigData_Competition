@@ -14,11 +14,11 @@ from src.utils.paths import SUBMISSIONS_DIR
 from src import config, log
 
 
-def main(submission_file_name):
+def main(submission_file_name, model_one_name, model_two_name):
     log.info(f'Starting evaluation for submission file {submission_file_name}')
 
     dataset = TestingMulticlassDataset()
-    records = dataset.load_records()
+    dataset.load_records()
 
     dataloader = iter(DataLoader(
         dataset=dataset,
@@ -27,12 +27,12 @@ def main(submission_file_name):
 
     model_one = RetinaNet()
     model_one.to(config.devices[0])
-    model_one.load("retinanet_backbone_test")
+    model_one.load(model_one_name)
     model_one.eval()
 
     model_two = RetinaNetEnsemble()
     model_two.to(config.devices[0])
-    model_two.load("retinaNetEnsemble_FullTestOne")
+    model_two.load(model_two_name)
     model_two.eval()
 
 
@@ -78,4 +78,4 @@ def main(submission_file_name):
     log.info(f"Evaluation completed, submission wrote out {len(predictions)} predictions to {SUBMISSIONS_DIR}/{submission_file_name}.csv")
 
 if __name__:
-    main("submission_test_1")
+    main("submission_test_1", 'retinanet_backbone_test', 'retinaNetEnsemble_FullTestOne')
