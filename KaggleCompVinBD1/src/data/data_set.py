@@ -191,10 +191,15 @@ class TrainingDatasetMixin(Dataset):
             record['annotations'] = {'boxes': np.array(record['annotations']['boxes']), 'labels': np.array(record['annotations']['labels'])}
 
         if 'file_name' in record:
-            image = io.imread(record['file_name'] + '.png')
+            # image = io.imread(record['file_name'] + '.png', as_gray=False)
+            image = cv2.imread(record['file_name'] + '.png')
 
             if self.dataset.image_transformations:
                 image = self.dataset.image_transformations(image=image)['image']
+
+            image = np.transpose(image, (2, 0, 1))
+
+
 
             record['image'] = image
         else:

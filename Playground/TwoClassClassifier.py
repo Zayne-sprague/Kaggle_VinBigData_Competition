@@ -55,9 +55,9 @@ class CNNFixedPredictor(nn.Module):
 def build_predictor(model_name: str, model_mode: str = 'normal'):
 
     if model_mode == 'normal':
-        return timm.create_model(model_name, pretrained=True, num_classes=2, in_chans=1)
+        return timm.create_model(model_name, pretrained=True, num_classes=2, in_chans=3)
     elif model_name == 'cnn_fixed':
-        timm_model = timm.create_model(model_name, pretrained=True, num_classes=0, in_chans=1)
+        timm_model = timm.create_model(model_name, pretrained=True, num_classes=0, in_chans=3)
         return CNNFixedPredictor(timm_model, num_classes=2)
 
 def accuracy(y: torch.Tensor, t: torch.Tensor):
@@ -87,7 +87,7 @@ class Classifier(nn.Module):
         self.prefix=''
 
     def forward(self, image, targets):
-        outputs = self.predictor(image)
+        outputs = self.predictor(image.float())
         loss = self.lossfun(outputs, targets)
         metrics = {
             f'{self.prefix}loss': loss.item(),
@@ -155,7 +155,7 @@ class EMA:
         for name, param in self.model.named_parameters():
             if param.requires_grad:
                 assert name in self.shadow
-                new_average = (1.0 - decay) * param.delta + decay * self.shadow[name]
+                new_average = (1.0 - decay) * param.data + decay * self.shadow[name]
                 self.shadow[name] = new_average.clone()
 
     __call__ = step
@@ -224,7 +224,7 @@ def create_trainer(model, optimizer) -> Engine:
     def update_fn(engine, batch):
         model.train()
         optimizer.zero_grad()
-        loss, metrics = model(*[elem.to(device) for elem in batch])
+        loss, metrics = model(batch['image'].to(config.devices[0]), batch['label'].to(config.devices[0]))
         loss.backward()
         optimizer.step()
         return metrics
@@ -262,12 +262,12 @@ trainer = create_trainer(model, optimizer)
 
 ema = EMA(predictor, decay=0.999)
 
-def eval_func(*batch):
-    loss, metrics = model(*[elem.to(config.devices[0]) for elem in batch])
+def eval_func(batch):
+    loss, metrics = model(batch['image'].to(config.devices[0]), batch['label'].to(config.devices[0]))
 
     classifier.prefix ='ema_'
     ema.assign()
-    loss, metrics = model(*[elem.to(config.devices[0]) for elem in batch])
+    loss, metrics = model(batch['image'].to(config.devices[0]), batch['label'].to(config.devices[0]))
     ema.resume()
     classifier.prefix = ''
 

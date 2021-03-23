@@ -44,7 +44,7 @@ class TrainingAbnormalDataSet(TrainingDataSet):
 
             records[idx]['label'] = [healthy_percentage, abnormal_percentage]
 
-            # del records[idx]['annotations']
+            del records[idx]['annotations']
 
         return records
 
