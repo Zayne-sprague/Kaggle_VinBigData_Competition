@@ -27,12 +27,24 @@ class TrainingAbnormalDataSet(TrainingDataSet):
         records = super().__load_records__()
 
         for idx, record in tqdm(enumerate(records), total=len(records)):
-            if is_record_healthy(record):
-                records[idx]['label'] = [1, 0]
-            else:
-                records[idx]['label'] = [0, 1]
+            total_annotations = len(record['annotations'])
+            num_healthy_annotations = sum([1 for x in record['annotations'] if x['category_id'] == Classifications.Healthy.value])
 
-            del records[idx]['annotations']
+            healthy_percentage = num_healthy_annotations/total_annotations
+            abnormal_percentage = 1 - healthy_percentage
+
+            # Label smoothing
+            smoothing_factor: float = 0.01
+            if healthy_percentage > abnormal_percentage:
+                healthy_percentage -= smoothing_factor
+                abnormal_percentage += smoothing_factor
+            elif healthy_percentage < abnormal_percentage:
+                healthy_percentage += smoothing_factor
+                abnormal_percentage -= smoothing_factor
+
+            records[idx]['label'] = [healthy_percentage, abnormal_percentage]
+
+            # del records[idx]['annotations']
 
         return records
 
@@ -59,12 +71,12 @@ class TrainingAbnormalDataSet(TrainingDataSet):
         if not self.__annotated__:
             total = len(records)
 
-            healthy = len([x for x in records if x['label'][0] == 1])
+            healthy = len([x for x in records if x['label'][0] > x['label'][1]])
 
             abnormal = total - healthy
         else:
             total = sum([len(x['annotations']['labels']) for x in records])
-            healthy = sum([len(x['annotations']['labels']) for x in records if x['annotations']['labels'][0][0] == 1])
+            healthy = sum([len(x['annotations']['labels']) for x in records if x['annotations']['labels'][0][0] > x['annotations']['labels'][0][1]])
             abnormal = total - healthy
 
         return {

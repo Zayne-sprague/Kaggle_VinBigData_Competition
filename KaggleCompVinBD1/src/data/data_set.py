@@ -1,4 +1,4 @@
-from torch.utils.data import IterableDataset, random_split, Subset
+from torch.utils.data import IterableDataset, random_split, Subset, Dataset
 import torch
 import pandas as pd
 import numpy as np
@@ -23,10 +23,10 @@ __NUM_OF_TEST_IMGS_WITH_DEBUG__ = 25
 
 #https://medium.com/speechmatics/how-to-build-a-streaming-dataloader-with-pytorch-a66dd891d9dd
 # TODO implement parallel data loading and re-read ^ (also shuffling would be nice)
-class TrainingDataSet(IterableDataset):
+class TrainingDataSet:
     # Base class for data loaders
 
-    def __init__(self, readin_annotation_data=True, readin_meta_data=True):
+    def __init__(self, readin_annotation_data=True, readin_meta_data=True, image_transformations=None):
         # If you are not reading in the annotation/meta data, you better set it yourself (usually you only wouldn't want
         # to read in this data if you are testing the implementation of other systems with this class-- i.e. speed)
         if readin_annotation_data:
@@ -38,6 +38,8 @@ class TrainingDataSet(IterableDataset):
             self.meta_data: pd.DataFrame = pd.read_csv(TRAIN_META_DATA)
         else:
             self.meta_data = None
+
+        self.image_transformations = image_transformations
 
         self.image_size: int = config.image_size
         self.__annotated__: bool = False
@@ -60,47 +62,6 @@ class TrainingDataSet(IterableDataset):
             self.log.error("Attempted to access data loaders records without loading them first!")
             raise Exception("Load records for dataloader before accessing them")
 
-    def __len__(self):
-        self.__records_check__()
-        return len(self.records)
-
-    def __getitem__(self, idx):
-        self.__records_check__()
-
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-
-        record = self.records[idx]
-
-        if 'label' in record:
-            record['label'] = np.array(record['label'])
-        if 'annotations' in record:
-            record['annotations'] = {'boxes': np.array(record['annotations']['boxes']), 'labels': np.array(record['annotations']['labels'])}
-
-        if 'filename' in record:
-            image = io.imread(record['file_name'] + '.png')
-
-            record['image'] = image
-        else:
-            record['image'] = 0
-
-        return record
-
-
-    def process_data(self, data):
-        for x in data:
-            if 'file_name' in x:
-                x['image'] = io.imread(x['file_name'] + '.png')
-
-            yield x
-
-    def __get_stream__(self, data):
-        return cycle(self.process_data(data))
-
-    def __iter__(self):
-        self.__records_check__()
-
-        return self.__get_stream__(self.records)
 
     def load_records(self):
         self.records = self.__load_records__()
@@ -126,6 +87,7 @@ class TrainingDataSet(IterableDataset):
             annotations = []
             for annotation_idx, annotation in self.annotation_data.query("image_id == @image_id").iterrows():
                 class_id = annotation['class_id']
+                rad_id = annotation['rad_id']
 
                 if not config.include_healthy_annotations and class_id == Classifications.Healthy.value:
                     continue
@@ -146,7 +108,8 @@ class TrainingDataSet(IterableDataset):
 
                 annotations.append({
                     "bbox": bbox,
-                    "category_id": class_id
+                    "category_id": class_id,
+                    "rad_id": rad_id
                 })
 
             if not config.include_records_without_annotations and len(annotations) == 0:
@@ -181,11 +144,118 @@ class TrainingDataSet(IterableDataset):
             # You can also just do a, b, c, d = partition_data([0.25, 0.25, 0.25, 0.25]) which is cool!
             yield dl
 
+    def query(self, query: str) -> pd.DataFrame:
+        if self.annotation_data is None:
+            self.log.warn("Attempted to query annotation data without annotation file loaded")
+            return pd.DataFrame([])
+        return self.annotation_data.query(query)
+
+    def m_query(self, query: str) -> pd.DataFrame:
+        if self.meta_data is None:
+            self.log.warn("Attempted to query meta data without the meta data file loaded")
+            return pd.DataFrame([])
+        return self.meta_data.query(query)
+
     def get_metrics(self) -> dict:
         raise NotImplementedError()
 
     def display_metrics(self, metrics: dict) -> None:
         raise NotImplementedError()
+
+
+class TrainingDatasetMixin(Dataset):
+
+    def __init__(self, dataset: TrainingDataSet):
+        self.dataset = dataset
+        self.log = self.dataset.log
+
+    @property
+    def records(self):
+        return self.dataset.records
+
+    def __len__(self):
+        self.dataset.__records_check__()
+        return len(self.dataset.records)
+
+    def __getitem__(self, idx):
+        self.dataset.__records_check__()
+
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        record = self.records[idx]
+
+        if 'label' in record:
+            record['label'] = np.array(record['label'])
+        if 'annotations' in record and 'label' not in record:
+            record['annotations'] = {'boxes': np.array(record['annotations']['boxes']), 'labels': np.array(record['annotations']['labels'])}
+
+        if 'file_name' in record:
+            image = io.imread(record['file_name'] + '.png')
+
+            if self.dataset.image_transformations:
+                image = self.dataset.image_transformations(image=image)['image']
+
+            record['image'] = image
+        else:
+            record['image'] = 0
+
+        return record
+
+
+class TrainingDatasetIterable(IterableDataset):
+
+    def __init__(self, dataset: TrainingDataSet):
+        self.dataset = dataset
+        self.log = self.dataset.log
+
+    def __len__(self):
+        self.dataset.__records_check__()
+        return len(self.dataset.records)
+
+    def __getitem__(self, idx):
+        self.dataset.__records_check__()
+
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        record = self.dataset.records[idx]
+
+        if 'label' in record:
+            record['label'] = np.array(record['label'])
+        if 'annotations' in record:
+            record['annotations'] = {'boxes': np.array(record['annotations']['boxes']), 'labels': np.array(record['annotations']['labels'])}
+
+        if 'file_name' in record:
+            image = io.imread(record['file_name'] + '.png')
+
+            if self.dataset.image_transformations:
+                image = self.dataset.image_transformations(image=image)['image']
+
+            record['image'] = image
+        else:
+            record['image'] = 0
+
+        return record
+
+    @property
+    def records(self):
+        return self.dataset.records
+
+    def process_data(self, data):
+        for x in data:
+            if 'file_name' in x:
+                x['image'] = io.imread(x['file_name'] + '.png')
+
+            yield x
+
+    def __get_stream__(self, data):
+        return cycle(self.process_data(data))
+
+    def __iter__(self):
+        self.dataset.__records_check__()
+
+        return self.__get_stream__(self.dataset.records)
 
 
 class TestingDataLoader(TrainingDataSet):

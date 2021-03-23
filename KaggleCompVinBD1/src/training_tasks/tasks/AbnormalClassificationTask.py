@@ -25,7 +25,7 @@ class AbnormalClassificationTask(SimpleTrainer):
 
         dataloader.display_metrics(dataloader.get_metrics())
 
-        data = iter(DataLoader(dataloader, batch_size=config.batch_size, num_workers=4))
+        data = iter(DataLoader(dataloader, batch_size=config.batch_size, num_workers=4 if config.use_gpu else 0))
         total = (len(dataloader) // config.batch_size) + 1
 
         # idx 0 == correct, idx 1 == incorrect

@@ -115,7 +115,7 @@ class SimpleTrainer(TrainingTask):
         self.data = iter(DataLoader(
             BufferedShuffleDataset(data, buffer_size=2500),
             batch_size=batch_size,
-            num_workers=4,
+            num_workers=4 if config.use_gpu else 0,
             collate_fn=self.collater,
         ))
 
