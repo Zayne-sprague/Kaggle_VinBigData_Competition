@@ -310,3 +310,5 @@ def save_ema_model(manager):
 manager.extend(save_ema_model, trigger=(5, "epoch"))
 
 _ = trainer.run(train_loader, max_epochs=epoch)
+
+torch.save(predictor.state_dict(), MODELS_DIR / "2ClassClassifier.pt")
