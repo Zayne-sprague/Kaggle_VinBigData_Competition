@@ -241,14 +241,14 @@ train_inds, valid_inds = split_inds[0]
 train_loader = DataLoader(
     [dataset[i] for i in train_inds],
     batch_size=config.batch_size,
-    num_workers=4 if config.use_gpu else 0,
+    num_workers=0 if config.use_gpu else 0,
     pin_memory=True
 )
 
 valid_loader = DataLoader(
     [dataset[i] for i in valid_inds],
     batch_size=config.batch_size,
-    num_workers=4 if config.use_gpu else 0,
+    num_workers=0 if config.use_gpu else 0,
     pin_memory=True
 )
 
@@ -262,7 +262,7 @@ trainer = create_trainer(model, optimizer)
 
 ema = EMA(predictor, decay=0.999)
 
-def eval_func(batch):
+def eval_func(**batch):
     loss, metrics = model(batch['image'].to(config.devices[0]), batch['label'].to(config.devices[0]))
 
     classifier.prefix ='ema_'

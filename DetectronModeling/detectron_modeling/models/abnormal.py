@@ -9,7 +9,8 @@ import os
 
 from src.utils.paths import DETECTRON_OUTPUT_DIR, DATA, MODELS_DIR
 from detectron_modeling.data.detectron_abnormal_dataset import DetectronTrainingAbnormalDataSet
-
+from detectron_modeling.data.detectron_multiclass_dataset import DetectronTrainingMulticlassDataSet
+from src import Classifications
 
 class MyTrainer(DefaultTrainer):
     @classmethod
@@ -19,12 +20,12 @@ class MyTrainer(DefaultTrainer):
         return COCOEvaluator(dataset_name, cfg, True, output_folder)
 
 def main():
-    data_set = DetectronTrainingAbnormalDataSet("training_data")
-    data_set.load_records()
+    data_set = DetectronTrainingMulticlassDataSet("training_data")
+    data_set.load_records(rad_id=None)
     data_set.register_records()
     data_set.register_metadata()
 
-    output_path = str(DETECTRON_OUTPUT_DIR / 'abnormal')
+    output_path = str(DETECTRON_OUTPUT_DIR / 'multiclass')
     trained_weights = str(DATA / 'vbd_r50fpn3x_512px/model_final.pth')
 
     cfg = get_cfg()
@@ -45,16 +46,14 @@ def main():
     cfg.TEST.EVAL_PERIOD = 5000
 
     cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512
-    cfg.MODEL.ROI_HEADS.NUM_CLASSES = 2
+    cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(list(Classifications)) - 1
     # cfg.MODEL.ROI_BOX_HEAD.NAME = "MyOutputLayer"
 
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
-    modelout = build_model(cfg)
-    modelin = torch.load(f'{MODELS_DIR}/resnet50_test3.pth')
 
     trainer = MyTrainer(cfg)
-    # trainer.resume_or_load(resume=True)
-    # trainer.train()
+    trainer.resume_or_load(resume=True)
+    trainer.train()
 
 
 
