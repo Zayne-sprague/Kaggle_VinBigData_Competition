@@ -5,6 +5,14 @@ import sys
 import coloredlogs
 from enum import Enum
 
+import torch
+import numpy as np
+import random
+
+random.seed(1)
+np.random.seed(1)
+torch.manual_seed(1)
+
 
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.DEBUG)

@@ -258,7 +258,7 @@ if __name__=="__main__":
 
     # Not a random number of channels... this is borderline as much memory as I can run with current setup
     # TODO - find ways of optimizing memory so we can increase model size as well as channels per backbone layer
-    model = TimmRetinaNet(backbone_channel_size=40)
+    model = TimmRetinaNet(backbone_timm_model='cspresnet50', backbone_channel_size=40)
 
     dataloader = TrainingMulticlassDataset()
     dataloader.load_records()
@@ -268,10 +268,13 @@ if __name__=="__main__":
     batch_aug = BatchAugmenter()
     batch_aug.compose([MixUpImageWithAnnotations(probability=0.75)])
     task = MulticlassDetectionTask(model, train_dl, optim.Adam(model.parameters(), lr=0.0001), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
-    task.max_iter = 25000
+    task.max_iter = 2500000
 
-    val_hook = PeriodicStepFuncHook(500, lambda: task.validation(val_dl, model))
-    checkpoint_hook = CheckpointHook(250, "timmRetinaNetTestOne_x1", permanent_checkpoints=5000, keep_last_n_checkpoints=5)
+    validation_iteration = 2000
+    train_acc_hook = PeriodicStepFuncHook(validation_iteration, lambda: task.validation(train_dl, model))
+    val_hook = PeriodicStepFuncHook(validation_iteration, lambda: task.validation(val_dl, model))
+
+    checkpoint_hook = CheckpointHook(250, "timmRetinaNetTestThree_x1", permanent_checkpoints=5000, keep_last_n_checkpoints=5)
 
     task.register_hook(LogTrainingLoss(frequency=20))
     task.register_hook(StepTimer())
