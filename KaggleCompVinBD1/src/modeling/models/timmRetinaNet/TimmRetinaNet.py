@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 
 from torchvision.models.detection import retinanet_resnet50_fpn
 from torchvision.models.detection.retinanet import RetinaNetHead, RetinaNetClassificationHead, RetinaNetRegressionHead
@@ -10,17 +11,31 @@ from collections import OrderedDict
 from src.modeling.models.model import BaseModel
 from src import config, Classifications, log
 
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.enabled = True
+
 class TimmRetinaNet(BaseModel):
 
-    def __init__(self, backbone_timm_model='resnetv2_50x1_bitm'):
+    def __init__(self, backbone_timm_model='resnetv2_50x1_bitm', backbone_channel_size=32, trainable_backbone_layers=3, raise_errors=False):
         super().__init__("TimmRetinaNet")
         model = timm.create_model(backbone_timm_model, pretrained=True, features_only=True)
 
         self.m = retinanet_resnet50_fpn(True, trainable_backbone_layers=5)
-        self.m.forward_features_model = model
-        self.m.backbone.out_channels = 256
+        self.m.backbone = model
+        self.m.backbone.out_channels = backbone_channel_size
 
         self.m.head = MultiClassRetinaHead(self.m.backbone, self.m.head, [x['num_chs'] for x in model.feature_info.info])
+
+        self.raise_errors = raise_errors
+
+        layer_names = list(model.return_layers.keys())
+        for i in range(max(0, len(model.return_layers) - trainable_backbone_layers)):
+            layer_name = layer_names[i]
+            layer = self.m.backbone.__getattr__(layer_name)
+            for param in layer.parameters():
+                param.requires_grad = False
+
+        torch.cuda.empty_cache()
 
     def forward(self, data: dict) -> dict:
         x = data['image']
@@ -41,11 +56,14 @@ class TimmRetinaNet(BaseModel):
                 x = self.retina_forward(x, targets)
             except Exception as e:
                 self.log.critical(f"ERROR in model forward: {e}")
+                if self.raise_errors:
+                    raise e
+
                 return {'error': True}
 
             loss = (x['classification'] + x['bbox_regression']).mean()
-            out = {'losses': {'loss': loss}, 'other_metrics': {'classifiction_loss': x['classification'].item(),
-                                                               'bbox_regression_loss': x['bbox_regression'].item()}}
+            out = {'losses': {'loss': loss}, 'other_metrics': {'classifiction_loss': x['classification'],
+                                                               'bbox_regression_loss': x['bbox_regression']}}
 
             return out
         else:
@@ -95,7 +113,7 @@ class TimmRetinaNet(BaseModel):
                                      .format(degen_bb, target_idx))
 
         # get the features from the backbone
-        _features = self.m.forward_features_model(images.tensors)
+        _features = self.m.backbone(images.tensors)
         features = {}
         for idx, feature in enumerate(_features):
             features[idx] = feature
@@ -149,10 +167,7 @@ class MultiClassRetinaHead(torch.nn.Module):
 
     def __init__(self, backbone, head: RetinaNetHead, channels):
         super().__init__()
-        from torch import nn
 
-
-        # TODO - allow transfer learning here, there's only 1 conv layer that cannot be transfered.
         self.classification_head = RetinaNetClassificationHeadOHE(backbone.out_channels, head.classification_head.num_anchors, len(Classifications) if config.include_healthy_annotations else len(Classifications) - 1)
         self.regression_head = RetinaNetRegressionHead(backbone.out_channels, head.classification_head.num_anchors)
 
@@ -170,6 +185,8 @@ class MultiClassRetinaHead(torch.nn.Module):
                     torch.nn.init.constant_(layer.bias, 0)
 
             self.scalings.append(scaled_conv)
+
+        self.scalings = nn.ModuleList(self.scalings)
 
 
     def compute_loss(self, targets, head_outputs, anchors, matched_idxs):
@@ -225,6 +242,7 @@ class RetinaNetClassificationHeadOHE(RetinaNetClassificationHead):
 
         return _sum(losses) / len(targets)
 
+
 if __name__=="__main__":
     from src.utils.hooks import CheckpointHook
 
@@ -237,7 +255,9 @@ if __name__=="__main__":
 
     from src.training_tasks import BackpropAggregators
 
-    model = TimmRetinaNet()
+    # Not a random number of channels... this is borderline as much memory as I can run with current setup
+    # TODO - find ways of optimizing memory so we can increase model size as well as channels per backbone layer
+    model = TimmRetinaNet(backbone_channel_size=40, raise_errors=True)
 
     dataloader = TrainingMulticlassDataset()
     dataloader.load_records()
@@ -250,9 +270,9 @@ if __name__=="__main__":
     task.max_iter = 25000
 
     val_hook = PeriodicStepFuncHook(500, lambda: task.validation(val_dl, model))
-    checkpoint_hook = CheckpointHook(250, "retinaNetEnsemble_FullTestTwo", permanent_checkpoints=5000, keep_last_n_checkpoints=5)
+    checkpoint_hook = CheckpointHook(250, "timmRetinaNetTestOne_x1", permanent_checkpoints=5000, keep_last_n_checkpoints=5)
 
-    task.register_hook(LogTrainingLoss(frequency=1))
+    task.register_hook(LogTrainingLoss(frequency=20))
     task.register_hook(StepTimer())
     task.register_hook(val_hook)
     task.register_hook(checkpoint_hook)

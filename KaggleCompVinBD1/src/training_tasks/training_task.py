@@ -1,6 +1,7 @@
 import torch
 from torch import optim
 from torch.utils.data import DataLoader, BufferedShuffleDataset
+from torch.nn.parallel._functions import Gather
 
 from typing import List, Optional
 import logging
@@ -115,7 +116,7 @@ class SimpleTrainer(TrainingTask):
         self.data = iter(DataLoader(
             BufferedShuffleDataset(data, buffer_size=2500),
             batch_size=batch_size,
-            num_workers=4,
+            num_workers=0,
             collate_fn=self.collater,
         ))
 
@@ -183,19 +184,27 @@ class SimpleTrainer(TrainingTask):
             for ky in om:
                 if ky not in other_metrics:
                     other_metrics[ky] = []
+                if isinstance(om[ky], torch.Tensor):
+                    if len(om[ky].shape) > 0:
+                        om[ky] = om[ky].mean()
+                    om[ky] = om[ky].item()
                 other_metrics[ky].append(om[ky])
 
 
             losses = sum(loss_dict.values())
-            _losses.append(losses)
 
             back_prop_start = time.perf_counter()
 
             if self.backward_agg == BackpropAggregators.IndividualBackprops:
+                for loss in losses:
+                    _losses.append(loss)
                 losses.backward(torch.ones_like(losses))
             elif self.backward_agg == BackpropAggregators.MeanLosses:
+                losses = losses.mean()
+                _losses.append(losses)
                 losses.mean().backward()
             else:
+                _losses.append(losses)
                 losses.backward()
             back_prop_deltas.append(time.perf_counter() - back_prop_start)
 
@@ -231,5 +240,34 @@ class DistributedModel(torch.nn.DataParallel):
             return super().__getattr__(name)
         except AttributeError:
             return getattr(self.module, name)
+
+    def gather(self, outputs, output_device):
+        return gather(outputs, output_device, dim=self.dim)
+
+def gather(outputs, target_device, dim=0):
+    r"""
+    Gathers tensors from different GPUs on a specified device
+      (-1 means the CPU).
+    """
+    def gather_map(outputs):
+        out = outputs[0]
+        if isinstance(out, torch.Tensor):
+            return Gather.apply(target_device, dim, *outputs)
+        if out is None:
+            return None
+        if isinstance(out, dict):
+            if not all((len(out) == len(d) for d in outputs)):
+                raise ValueError('All dicts must have the same number of keys')
+            return type(out)(((k, gather_map([d[k] for d in outputs]))
+                              for k in out))
+        return type(out)(map(gather_map, zip(*outputs)))
+
+    # Recursive function calls like this create reference cycles.
+    # Setting the function to None clears the refcycle.
+    try:
+        res = gather_map(outputs)
+    finally:
+        gather_map = None
+    return res
 
 
