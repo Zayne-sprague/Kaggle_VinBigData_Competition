@@ -250,17 +250,24 @@ def gather(outputs, target_device, dim=0):
       (-1 means the CPU).
     """
     def gather_map(outputs):
+        # An error in any GPU is an error for the entire batch-- throw it all out
+        if any(['error' in x and x['error'] for x in outputs]):
+            return {'error': True}
+
         out = outputs[0]
-        if isinstance(out, torch.Tensor):
-            return Gather.apply(target_device, dim, *outputs)
-        if out is None:
-            return None
-        if isinstance(out, dict):
-            if not all((len(out) == len(d) for d in outputs)):
-                raise ValueError('All dicts must have the same number of keys')
-            return type(out)(((k, gather_map([d[k] for d in outputs]))
-                              for k in out))
-        return type(out)(map(gather_map, zip(*outputs)))
+        loss = Gather.apply(target_device, dim, *[x['losses']['loss'] for x in outputs])
+
+        return_obj = {'losses': {'loss': loss}}
+
+        if 'other_metrics' in out:
+            other_metrics = {}
+
+            for metric in list(out['other_metrics'].keys()):
+                other_metrics[metric] = Gather.apply(target_device, dim, *[x['other_metrics'][metric] for x in outputs])
+
+            return_obj['other_metrics'] = other_metrics
+
+        return return_obj
 
     # Recursive function calls like this create reference cycles.
     # Setting the function to None clears the refcycle.

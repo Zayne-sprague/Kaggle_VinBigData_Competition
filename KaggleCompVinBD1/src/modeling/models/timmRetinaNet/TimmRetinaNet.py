@@ -6,6 +6,7 @@ from torchvision.models.detection.retinanet import RetinaNetHead, RetinaNetClass
 from torchvision.ops import sigmoid_focal_loss
 import timm
 
+import numpy as np
 from collections import OrderedDict
 
 from src.modeling.models.model import BaseModel
@@ -257,7 +258,7 @@ if __name__=="__main__":
 
     # Not a random number of channels... this is borderline as much memory as I can run with current setup
     # TODO - find ways of optimizing memory so we can increase model size as well as channels per backbone layer
-    model = TimmRetinaNet(backbone_channel_size=40, raise_errors=True)
+    model = TimmRetinaNet(backbone_channel_size=40)
 
     dataloader = TrainingMulticlassDataset()
     dataloader.load_records()
