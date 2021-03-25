@@ -7,10 +7,10 @@ from typing import List
 import weakref
 
 
-import cv2
 from skimage import io
 from tqdm import tqdm
 import logging
+from sklearn.model_selection import StratifiedKFold
 from itertools import cycle
 
 from src.utils.paths import TRAINING_ANNOTATION_DATA, TRAIN_META_DATA, CONVERTED_VBD_DICOM_DATA_FOLDER, TEST_META_DATA
@@ -278,15 +278,4 @@ class TestingDataLoader(TrainingDataSet):
 
         self.records = records
         return records
-
-
-
-
-def get_img_dims(
-        imgpath: Path
-):
-    image = cv2.imread(str(imgpath))
-    h, w, c = image.shape
-
-    return h, w, c
 
