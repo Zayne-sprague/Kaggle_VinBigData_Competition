@@ -18,6 +18,7 @@ from src.utils.events import EventStorage
 from src.utils.collater import Collater, SimpleCollater
 from src.training_tasks import BackpropAggregators
 from src.data_augs.batch_augmenter import BatchAugmenter
+from src.modeling.lrschedulers.LRScheduler import LRScheduler
 
 class TrainingTask:
 
@@ -30,6 +31,7 @@ class TrainingTask:
         self.max_iter: int = 1000
 
         self.hooks: List[HookBase] = []
+        self.lr_schedulers: List[LRScheduler] = []
         self.storage: Optional[EventStorage] = None
 
     def begin_or_resume(self, resume=True):
@@ -53,24 +55,36 @@ class TrainingTask:
     def step(self):
         pass
 
+    def register_lrschedulers(self, lr_scheduler: LRScheduler):
+        lr_scheduler.trainer = weakref.proxy(self)
+        self.lr_schedulers.append(lr_scheduler)
+
+    def lr_scheduler_step(self):
+        [x.step() for x in self.lr_schedulers]
+
     def register_hook(self, hook: HookBase):
         hook.trainer = weakref.proxy(self)
         self.hooks.append(hook)
 
     def resume(self) -> None:
         [x.on_resume() for x in self.hooks]
+        [x.on_resume() for x in self.lr_schedulers]
 
     def before_training(self):
         [x.before_training() for x in self.hooks]
+        [x.before_training() for x in self.lr_schedulers]
 
     def after_training(self):
         [x.after_training() for x in self.hooks]
+        [x.after_training() for x in self.lr_schedulers]
 
     def before_iteration(self):
         [x.before_iteration() for x in self.hooks]
+        [x.before_iteration() for x in self.lr_schedulers]
 
     def after_iteration(self):
         [x.after_iteration() for x in self.hooks]
+        [x.after_iteration() for x in self.lr_schedulers]
 
 
 # Inspired by detectron2s structure.
@@ -124,7 +138,7 @@ class SimpleTrainer(TrainingTask):
 
         self.backward_agg: BackpropAggregators = backward_agg
 
-    def write_iteration_metrics(self, metrics: dict, data_delta: float, inference_delta: float, back_prop_delta:float, optim_delta:float, step_delta: float, other_metrics: dict):
+    def write_iteration_metrics(self, metrics: dict, lr: float, data_delta: float, inference_delta: float, back_prop_delta:float, optim_delta:float, step_delta: float, other_metrics: dict):
 
         for key in metrics:
             dims = metrics[key].shape
@@ -134,7 +148,7 @@ class SimpleTrainer(TrainingTask):
             else:
                 self.storage.put_item(key, metrics[key].item())
 
-
+        self.storage.put_item("learning_rate", lr)
         self.storage.put_item("data_delta", data_delta)
         self.storage.put_item("inference_delta", inference_delta)
         self.storage.put_item("back_prop_delta", back_prop_delta)
@@ -196,8 +210,11 @@ class SimpleTrainer(TrainingTask):
             back_prop_start = time.perf_counter()
 
             if self.backward_agg == BackpropAggregators.IndividualBackprops:
-                for loss in losses:
-                    _losses.append(loss)
+                if len(losses.shape) > 0:
+                    for loss in losses:
+                        _losses.append(loss)
+                else:
+                    _losses.append(losses)
                 losses.backward(torch.ones_like(losses))
             elif self.backward_agg == BackpropAggregators.MeanLosses:
                 losses = losses.mean()
@@ -211,7 +228,12 @@ class SimpleTrainer(TrainingTask):
             i += 1
 
         optim_step_start = time.perf_counter()
+
+        lr = self.optimizer.param_groups[0]['lr']
+
         self.optimizer.step()
+        self.lr_scheduler_step()
+
         self.optimizer.zero_grad()
         optim_delta = time.perf_counter() - optim_step_start
 
@@ -224,7 +246,7 @@ class SimpleTrainer(TrainingTask):
         for ky in other_metrics:
             other_metrics[ky] = sum(other_metrics[ky]) / len(other_metrics[ky])
 
-        self.write_iteration_metrics(loss_dict, data_delta=data_delta, inference_delta=inf_delta, back_prop_delta=back_prop_delta, optim_delta=optim_delta, step_delta=time.perf_counter() - step_start, other_metrics=other_metrics)
+        self.write_iteration_metrics(loss_dict, lr=lr, data_delta=data_delta, inference_delta=inf_delta, back_prop_delta=back_prop_delta, optim_delta=optim_delta, step_delta=time.perf_counter() - step_start, other_metrics=other_metrics)
 
 
 class DistributedModel(torch.nn.DataParallel):

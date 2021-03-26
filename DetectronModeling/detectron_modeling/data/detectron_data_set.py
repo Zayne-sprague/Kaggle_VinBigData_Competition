@@ -11,7 +11,7 @@ class DetectronTrainingDataSet(TrainingDataSet):
 
     def register_records(self):
         assert len(self.records) > 0, "Need to load in the records before you can register them with detectron"
-        DatasetCatalog.register(self.name, lambda: self.records)
+        DatasetCatalog.register(self.name, lambda: self.records, )
 
     def register_metadata(self):
         pass

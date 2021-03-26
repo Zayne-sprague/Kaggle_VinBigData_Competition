@@ -130,6 +130,8 @@ python-dateutil==2.8.1
     # via
     #   matplotlib
     #   pandas
+pytorch-warmup==0.0.4
+    # via -r requirements.in
 pytz==2021.1
     # via pandas
 pywavelets==1.1.1
@@ -188,6 +190,7 @@ timm==0.4.5
 torch==1.8.0
     # via
     #   -r requirements.in
+    #   pytorch-warmup
     #   timm
     #   torchvision
 torchvision==0.9.0

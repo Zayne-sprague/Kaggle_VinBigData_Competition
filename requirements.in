@@ -11,5 +11,6 @@ map-boxes==1.0.5
 sklearn
 timm
 opencv-python
+pytorch_warmup
 
 git+https://github.com/facebookresearch/detectron2.git
