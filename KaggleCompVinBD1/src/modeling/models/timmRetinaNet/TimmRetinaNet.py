@@ -255,6 +255,7 @@ if __name__=="__main__":
     from src.data_augs.mix_up import MixUpImageWithAnnotations
 
     from src.training_tasks import BackpropAggregators
+    from src.modeling.lrschedulers import LRScheduler
 
     # Not a random number of channels... this is borderline as much memory as I can run with current setup
     # TODO - find ways of optimizing memory so we can increase model size as well as channels per backbone layer
@@ -266,19 +267,41 @@ if __name__=="__main__":
     train_dl, val_dl = dataloader.partition_data([0.75, 0.25], TrainingMulticlassDataset)
 
     batch_aug = BatchAugmenter()
-    batch_aug.compose([MixUpImageWithAnnotations(probability=0.75)])
-    task = MulticlassDetectionTask(model, train_dl, optim.Adam(model.parameters(), lr=0.0001), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
+    # batch_aug.compose([MixUpImageWithAnnotations(probability=0.75)])
+    # task = MulticlassDetectionTask(model, train_dl, optim.Adam(model.parameters(), lr=0.0001), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
+    task = MulticlassDetectionTask(model, train_dl, optim.SGD(model.parameters(), lr=0.003, momentum=0.9), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
+
     task.max_iter = 2500000
 
-    validation_iteration = 2000
+    validation_iteration = 500
     train_acc_hook = PeriodicStepFuncHook(validation_iteration, lambda: task.validation(train_dl, model))
     val_hook = PeriodicStepFuncHook(validation_iteration, lambda: task.validation(val_dl, model))
 
-    checkpoint_hook = CheckpointHook(250, "timmRetinaNetTestThree_x1", permanent_checkpoints=5000, keep_last_n_checkpoints=5)
+    checkpoint_hook = CheckpointHook(250, "timmCSPNetTestOne", permanent_checkpoints=5000, keep_last_n_checkpoints=5)
+
+    lr_steps = [1.0, 0.1, 0.01, 0.001]
+    steps_per_epoch = len(train_dl) // config.artificial_batch_size
+    steps = [ steps_per_epoch * 30, steps_per_epoch * 60, steps_per_epoch * 80]
+
+    def lr_stepper(current_step):
+        idx = 0
+        for step in steps:
+            if current_step <= step:
+               return lr_steps[idx]
+            idx += 1
+        return lr_steps[-1]
+
+
+    scheduler = LRScheduler.LinearWarmup(0, 5000)
+    scheduler2 = LRScheduler.LambdaLR(0, None, lr_stepper)
 
     task.register_hook(LogTrainingLoss(frequency=20))
     task.register_hook(StepTimer())
     task.register_hook(val_hook)
+    task.register_hook(train_acc_hook)
     task.register_hook(checkpoint_hook)
+
+    task.register_lrschedulers(scheduler2)
+    task.register_lrschedulers(scheduler)
 
     task.begin_or_resume()
