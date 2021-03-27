@@ -3,11 +3,13 @@ from torch import nn
 
 from torchvision.models.detection import retinanet_resnet50_fpn
 from torchvision.models.detection.retinanet import RetinaNetHead, RetinaNetClassificationHead, RetinaNetRegressionHead
+from torchvision.models.detection.retinanet import det_utils
 from torchvision.ops import sigmoid_focal_loss
 import timm
 
 import numpy as np
 from collections import OrderedDict
+import math
 
 from src.modeling.models.model import BaseModel
 from src.modeling.models.timmClassifier.timmClassifier import TimmClassifier
@@ -18,10 +20,10 @@ torch.backends.cudnn.enabled = True
 
 class TimmRetinaNet(BaseModel):
 
-    def __init__(self, load_model=None, backbone_timm_model='resnetv2_50x1_bitm', backbone_channel_size=32, trainable_backbone_layers=3, raise_errors=False):
+    def __init__(self, load_model=None, backbone_timm_model='resnetv2_50x1_bitm', backbone_channel_size=32, trainable_backbone_layers=3, raise_errors=False, convs_for_head: int = 3, pretrain_retina_net=False, half=True):
         super().__init__("TimmRetinaNet")
 
-        self.m = retinanet_resnet50_fpn(True, trainable_backbone_layers=trainable_backbone_layers)
+        self.m = retinanet_resnet50_fpn(pretrain_retina_net, trainable_backbone_layers=trainable_backbone_layers)
 
         if load_model:
             model = TimmClassifier()
@@ -36,7 +38,7 @@ class TimmRetinaNet(BaseModel):
             self.m.backbone = model
             self.m.backbone.out_channels = backbone_channel_size
 
-        self.m.head = MultiClassRetinaHead(self.m.backbone, self.m.head, [x['num_chs'] for x in model.feature_info.info])
+        self.m.head = MultiClassRetinaHead(self.m.backbone, self.m.head, [x['num_chs'] for x in model.feature_info.info], convs_for_head=convs_for_head)
 
         self.raise_errors = raise_errors
 
@@ -49,8 +51,13 @@ class TimmRetinaNet(BaseModel):
 
         torch.cuda.empty_cache()
 
+        self.__half = half
+
     def forward(self, data: dict) -> dict:
-        x = data['image']
+        if self.__half:
+            x = data['image'].half()
+        else:
+            x = data['image']
 
         batch_size = x.shape[0]
         x = torch.unsqueeze(x, -1)
@@ -177,11 +184,11 @@ class TimmRetinaNet(BaseModel):
 
 class MultiClassRetinaHead(torch.nn.Module):
 
-    def __init__(self, backbone, head: RetinaNetHead, channels):
+    def __init__(self, backbone, head: RetinaNetHead, channels, convs_for_head: int = 3):
         super().__init__()
 
-        self.classification_head = RetinaNetClassificationHeadOHE(backbone.out_channels, head.classification_head.num_anchors, len(Classifications) if config.include_healthy_annotations else len(Classifications) - 1)
-        self.regression_head = RetinaNetRegressionHead(backbone.out_channels, head.classification_head.num_anchors)
+        self.classification_head = RetinaNetClassificationHeadOHE(backbone.out_channels, head.classification_head.num_anchors, len(Classifications) if config.include_healthy_annotations else len(Classifications) - 1, convs_for_head=convs_for_head)
+        self.regression_head = CustomRetinaNetRegressionHead(backbone.out_channels, head.classification_head.num_anchors, convs_for_head=convs_for_head)
 
 
         self.scalings = []
@@ -200,6 +207,8 @@ class MultiClassRetinaHead(torch.nn.Module):
 
         self.scalings = nn.ModuleList(self.scalings)
 
+        torch.cuda.empty_cache()
+
 
     def compute_loss(self, targets, head_outputs, anchors, matched_idxs):
         return {
@@ -217,7 +226,33 @@ class MultiClassRetinaHead(torch.nn.Module):
         }
 
 
-class RetinaNetClassificationHeadOHE(RetinaNetClassificationHead):
+class RetinaNetClassificationHeadOHE(nn.Module):
+
+    def __init__(self, in_channels, num_anchors, num_classes, prior_probability=0.01, convs_for_head=3):
+        super().__init__()
+
+        conv = []
+        for _ in range(convs_for_head):
+            conv.append(nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1))
+            conv.append(nn.ReLU())
+        self.conv = nn.Sequential(*conv)
+
+        for layer in self.conv.children():
+            if isinstance(layer, nn.Conv2d):
+                torch.nn.init.normal_(layer.weight, std=0.01)
+                torch.nn.init.constant_(layer.bias, 0)
+
+        self.cls_logits = nn.Conv2d(in_channels, num_anchors * num_classes, kernel_size=3, stride=1, padding=1)
+        torch.nn.init.normal_(self.cls_logits.weight, std=0.01)
+        torch.nn.init.constant_(self.cls_logits.bias, -math.log((1 - prior_probability) / prior_probability))
+
+        self.num_classes = num_classes
+        self.num_anchors = num_anchors
+
+        # This is to fix using det_utils.Matcher.BETWEEN_THRESHOLDS in TorchScript.
+        # TorchScript doesn't support class attributes.
+        # https://github.com/pytorch/vision/pull/1697#issuecomment-630255584
+        self.BETWEEN_THRESHOLDS = det_utils.Matcher.BETWEEN_THRESHOLDS
 
     def compute_loss(self, targets, head_outputs, matched_idxs):
         def _sum(x):
@@ -254,6 +289,35 @@ class RetinaNetClassificationHeadOHE(RetinaNetClassificationHead):
 
         return _sum(losses) / len(targets)
 
+    def forward(self, x):
+        all_cls_logits = []
+
+        for features in x:
+            cls_logits = self.conv(features)
+            cls_logits = self.cls_logits(cls_logits)
+
+            # Permute classification output from (N, A * K, H, W) to (N, HWA, K).
+            N, _, H, W = cls_logits.shape
+            cls_logits = cls_logits.view(N, -1, self.num_classes, H, W)
+            cls_logits = cls_logits.permute(0, 3, 4, 1, 2)
+            cls_logits = cls_logits.reshape(N, -1, self.num_classes)  # Size=(N, HWA, 4)
+
+            all_cls_logits.append(cls_logits)
+
+        return torch.cat(all_cls_logits, dim=1)
+
+
+class CustomRetinaNetRegressionHead(RetinaNetRegressionHead):
+
+    def __init__(self, in_channels, num_anchors, convs_for_head: int = 3):
+        super().__init__(in_channels, num_anchors)
+
+        conv = []
+        for _ in range(convs_for_head):
+            conv.append(nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1))
+            conv.append(nn.ReLU())
+        self.conv = nn.Sequential(*conv)
+
 
 if __name__=="__main__":
     from src.utils.hooks import CheckpointHook
@@ -268,9 +332,13 @@ if __name__=="__main__":
     from src.training_tasks import BackpropAggregators
     from src.modeling.lrschedulers import LRScheduler
 
+    HALF = False
+
     # Not a random number of channels... this is borderline as much memory as I can run with current setup
     # TODO - find ways of optimizing memory so we can increase model size as well as channels per backbone layer
-    model = TimmRetinaNet(load_model='TimmModel_BiTRes_X1_TestFive@14060', backbone_channel_size=40, trainable_backbone_layers=5)
+    model = TimmRetinaNet(load_model='TimmModel_BiTRes_X1_TestFive@14060', backbone_channel_size=200, trainable_backbone_layers=5, raise_errors=False, convs_for_head=1, half=HALF)
+    if HALF:
+        model = model.half()
 
     dataloader = TrainingMulticlassDataset()
     dataloader.load_records()
@@ -287,13 +355,13 @@ if __name__=="__main__":
     # Loss exploded with this optimizer
     # task = MulticlassDetectionTask(model, train_dl, optim.SGD(model.parameters(), lr=0.003, momentum=0.9), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
 
-    task.max_iter = steps_per_epoch * 25
+    task.max_iter = steps_per_epoch * 2500
 
     validation_iteration = 500
     train_acc_hook = PeriodicStepFuncHook(validation_iteration * 6, lambda: task.validation(train_dl, model))
     val_hook = PeriodicStepFuncHook(validation_iteration, lambda: task.validation(val_dl, model))
 
-    checkpoint_hook = CheckpointHook(steps_per_epoch, "timmResNetTestTwelve_pretrained_X1", permanent_checkpoints=validation_iteration, keep_last_n_checkpoints=5)
+    checkpoint_hook = CheckpointHook(validation_iteration, "timmResNetTest14_pretrained_X1", permanent_checkpoints=validation_iteration, keep_last_n_checkpoints=0)
 
     lr_steps = [1.0, 0.1, 0.01, 0.001, 0.0001]
     steps = [ steps_per_epoch * 5, steps_per_epoch * 10, steps_per_epoch * 15]
@@ -307,7 +375,7 @@ if __name__=="__main__":
         return lr_steps[-1]
 
 
-    scheduler = LRScheduler.LinearWarmup(0, steps_per_epoch * 5)
+    scheduler = LRScheduler.LinearWarmup(0, steps_per_epoch * 2)
     scheduler2 = LRScheduler.LambdaLR(0, None, lr_stepper)
 
     task.register_hook(LogTrainingLoss(frequency=20))
