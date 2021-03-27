@@ -29,7 +29,7 @@ class LRScheduler(HookBase):
         self.scheduler.step()
 
     def before_iteration(self):
-        if self.trainer.iter == self.start_iter:
+        if self.trainer.iter >= self.start_iter and (not self.end_iter or self.trainer.iter <= self.end_iter) and not self.scheduler:
             self.__register__(self.trainer.optimizer)
 
     def after_iteration(self):

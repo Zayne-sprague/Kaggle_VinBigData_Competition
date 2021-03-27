@@ -10,6 +10,7 @@ import numpy as np
 from collections import OrderedDict
 
 from src.modeling.models.model import BaseModel
+from src.modeling.models.timmClassifier.timmClassifier import TimmClassifier
 from src import config, Classifications, log
 
 torch.backends.cudnn.benchmark = True
@@ -17,13 +18,23 @@ torch.backends.cudnn.enabled = True
 
 class TimmRetinaNet(BaseModel):
 
-    def __init__(self, backbone_timm_model='resnetv2_50x1_bitm', backbone_channel_size=32, trainable_backbone_layers=3, raise_errors=False):
+    def __init__(self, load_model=None, backbone_timm_model='resnetv2_50x1_bitm', backbone_channel_size=32, trainable_backbone_layers=3, raise_errors=False):
         super().__init__("TimmRetinaNet")
-        model = timm.create_model(backbone_timm_model, pretrained=True, features_only=True)
 
-        self.m = retinanet_resnet50_fpn(True, trainable_backbone_layers=5)
-        self.m.backbone = model
-        self.m.backbone.out_channels = backbone_channel_size
+        self.m = retinanet_resnet50_fpn(True, trainable_backbone_layers=trainable_backbone_layers)
+
+        if load_model:
+            model = TimmClassifier()
+            model.load(load_model)
+            model = model.model
+            self.m.backbone = model
+            self.m.backbone.out_channels = backbone_channel_size
+
+        else:
+            model = timm.create_model(backbone_timm_model, pretrained=True, features_only=True)
+
+            self.m.backbone = model
+            self.m.backbone.out_channels = backbone_channel_size
 
         self.m.head = MultiClassRetinaHead(self.m.backbone, self.m.head, [x['num_chs'] for x in model.feature_info.info])
 
@@ -259,29 +270,33 @@ if __name__=="__main__":
 
     # Not a random number of channels... this is borderline as much memory as I can run with current setup
     # TODO - find ways of optimizing memory so we can increase model size as well as channels per backbone layer
-    model = TimmRetinaNet(backbone_timm_model='cspresnet50', backbone_channel_size=40)
+    model = TimmRetinaNet(load_model='TimmModel_BiTRes_X1_TestFive@14060', backbone_channel_size=40, trainable_backbone_layers=5)
 
     dataloader = TrainingMulticlassDataset()
     dataloader.load_records()
 
     train_dl, val_dl = dataloader.partition_data([0.75, 0.25], TrainingMulticlassDataset)
 
-    batch_aug = BatchAugmenter()
-    # batch_aug.compose([MixUpImageWithAnnotations(probability=0.75)])
-    # task = MulticlassDetectionTask(model, train_dl, optim.Adam(model.parameters(), lr=0.0001), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
-    task = MulticlassDetectionTask(model, train_dl, optim.SGD(model.parameters(), lr=0.003, momentum=0.9), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
+    steps_per_epoch = len(train_dl) // config.artificial_batch_size
 
-    task.max_iter = 2500000
+
+    batch_aug = BatchAugmenter()
+    batch_aug.compose([MixUpImageWithAnnotations(probability=0.5)])
+    task = MulticlassDetectionTask(model, train_dl, optim.Adam(model.parameters(), lr=0.001), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
+
+    # Loss exploded with this optimizer
+    # task = MulticlassDetectionTask(model, train_dl, optim.SGD(model.parameters(), lr=0.003, momentum=0.9), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
+
+    task.max_iter = steps_per_epoch * 25
 
     validation_iteration = 500
-    train_acc_hook = PeriodicStepFuncHook(validation_iteration, lambda: task.validation(train_dl, model))
+    train_acc_hook = PeriodicStepFuncHook(validation_iteration * 6, lambda: task.validation(train_dl, model))
     val_hook = PeriodicStepFuncHook(validation_iteration, lambda: task.validation(val_dl, model))
 
-    checkpoint_hook = CheckpointHook(250, "timmCSPNetTestOne", permanent_checkpoints=5000, keep_last_n_checkpoints=5)
+    checkpoint_hook = CheckpointHook(steps_per_epoch, "timmResNetTestTwelve_pretrained_X1", permanent_checkpoints=validation_iteration, keep_last_n_checkpoints=5)
 
-    lr_steps = [1.0, 0.1, 0.01, 0.001]
-    steps_per_epoch = len(train_dl) // config.artificial_batch_size
-    steps = [ steps_per_epoch * 30, steps_per_epoch * 60, steps_per_epoch * 80]
+    lr_steps = [1.0, 0.1, 0.01, 0.001, 0.0001]
+    steps = [ steps_per_epoch * 5, steps_per_epoch * 10, steps_per_epoch * 15]
 
     def lr_stepper(current_step):
         idx = 0
@@ -292,7 +307,7 @@ if __name__=="__main__":
         return lr_steps[-1]
 
 
-    scheduler = LRScheduler.LinearWarmup(0, 5000)
+    scheduler = LRScheduler.LinearWarmup(0, steps_per_epoch * 5)
     scheduler2 = LRScheduler.LambdaLR(0, None, lr_stepper)
 
     task.register_hook(LogTrainingLoss(frequency=20))
@@ -304,4 +319,5 @@ if __name__=="__main__":
     task.register_lrschedulers(scheduler2)
     task.register_lrschedulers(scheduler)
 
+    task.log.info(f'Steps per epoch {steps_per_epoch}')
     task.begin_or_resume()

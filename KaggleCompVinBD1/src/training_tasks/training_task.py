@@ -212,16 +212,19 @@ class SimpleTrainer(TrainingTask):
             if self.backward_agg == BackpropAggregators.IndividualBackprops:
                 if len(losses.shape) > 0:
                     for loss in losses:
-                        _losses.append(loss)
+                        _losses.append(loss.item())
                 else:
-                    _losses.append(losses)
+                    _losses.append(losses.item())
+                losses /= config.artificial_batch_size
                 losses.backward(torch.ones_like(losses))
             elif self.backward_agg == BackpropAggregators.MeanLosses:
                 losses = losses.mean()
-                _losses.append(losses)
-                losses.mean().backward()
+                _losses.append(losses.item())
+                losses /= config.artificial_batch_size
+                losses.backward()
             else:
-                _losses.append(losses)
+                _losses.append(losses.item())
+                losses /= config.artificial_batch_size
                 losses.backward()
             back_prop_deltas.append(time.perf_counter() - back_prop_start)
 

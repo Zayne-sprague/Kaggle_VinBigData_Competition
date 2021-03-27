@@ -9,6 +9,8 @@ from src.data.multiclass_dataset import TestingMulticlassDataset
 
 from src.modeling.models.retinaNetEnsemble.retinaNetEnsemble import RetinaNetEnsemble
 from src.modeling.models.retinaNet.retinaNet import RetinaNet
+from src.modeling.models.timmClassifier.timmClassifier import TimmClassifier
+from src.modeling.models.timmRetinaNet.TimmRetinaNet import TimmRetinaNet
 
 from src.utils.paths import SUBMISSIONS_DIR
 from src import config, log
@@ -25,56 +27,57 @@ def main(submission_file_name, model_one_name, model_two_name):
         batch_size=1,
     ))
 
-    model_one = RetinaNet()
+    model_one = TimmClassifier()
     model_one.to(config.devices[0])
     model_one.load(model_one_name)
     model_one.eval()
 
-    model_two = RetinaNetEnsemble()
+    model_two = TimmRetinaNet(load_model='TimmModel_BiTRes_X1_TestFive@14060', backbone_channel_size=40)
     model_two.to(config.devices[0])
     model_two.load(model_two_name)
     model_two.eval()
 
+    with torch.no_grad():
 
-    total = len(dataset)
-
-
-    predictions = []
-    for i in tqdm(range(total), total=total, desc='Creating Predictions'):
+        total = len(dataset)
 
 
-        batch = next(dataloader)
-        for ky, val in batch.items():
-            # If we can, try to load up the batched data into the device (try to only send what is needed)
-            if isinstance(batch[ky], torch.Tensor):
-                batch[ky] = batch[ky].to(config.devices[0])
+        predictions = []
+        for i in tqdm(range(total), total=total, desc='Creating Predictions'):
 
-        id = batch['image_id'][0]
 
-        w, h = batch['orig_w'][0].item(), batch['orig_h'][0].item()
+            batch = next(dataloader)
+            for ky, val in batch.items():
+                # If we can, try to load up the batched data into the device (try to only send what is needed)
+                if isinstance(batch[ky], torch.Tensor):
+                    batch[ky] = batch[ky].to(config.devices[0])
 
-        healthy_or_abnormal = torch.argmax(model_one(batch)['preds'], dim=1).tolist()
-        if healthy_or_abnormal[0] == 1:
-            predictions.append([id, '14 1.0 0 0 1 1'])
-        else:
-            preds = model_two(batch)
-            pred = preds['preds'][0]
+            id = batch['image_id'][0]
 
-            pred_string = ''
-            for p_idx in range(len(pred['boxes'])):
-                pred_string += f'{pred["labels"][p_idx].item()} {pred["scores"][p_idx].item()} {int(pred["boxes"][p_idx][0].item() / 256.0 * w)} {int(pred["boxes"][p_idx][1].item() / 256.0 * h)} {int(pred["boxes"][p_idx][2].item() / 256.0 * w)} {int(pred["boxes"][p_idx][3].item() / 256.0 * h)} '
+            w, h = batch['orig_w'][0].item(), batch['orig_h'][0].item()
 
-            predictions.append([
-                id, pred_string
-            ])
+            healthy_or_abnormal = model_one(batch)['preds'].tolist()
+            if healthy_or_abnormal[0] == 1:
+                predictions.append([id, '14 1.0 0 0 1 1'])
+            else:
+                preds = model_two(batch)
+                pred = preds['preds'][0]
 
-    with open(f'{SUBMISSIONS_DIR}/{submission_file_name}.csv', 'w+') as submission:
-        submission_writer = csv.writer(submission, delimiter=',')
+                pred_string = ''
+                for p_idx in range(len(pred['boxes'])):
+                    pred_string += f'{pred["labels"][p_idx].item()} {pred["scores"][p_idx].item()} {int(pred["boxes"][p_idx][0].item() / 256.0 * w)} {int(pred["boxes"][p_idx][1].item() / 256.0 * h)} {int(pred["boxes"][p_idx][2].item() / 256.0 * w)} {int(pred["boxes"][p_idx][3].item() / 256.0 * h)} '
 
-        submission_writer.writerow(['image_id', 'PredictionString'])
-        submission_writer.writerows(predictions)
+                predictions.append([
+                    id, pred_string
+                ])
+
+        with open(f'{SUBMISSIONS_DIR}/{submission_file_name}.csv', 'w+') as submission:
+            submission_writer = csv.writer(submission, delimiter=',')
+
+            submission_writer.writerow(['image_id', 'PredictionString'])
+            submission_writer.writerows(predictions)
 
     log.info(f"Evaluation completed, submission wrote out {len(predictions)} predictions to {SUBMISSIONS_DIR}/{submission_file_name}.csv")
 
 if __name__:
-    main("submission_test_1", 'retinaFpnBackbone_realTestone@15000', 'retinaNetEnsemble_FullTestTwo')
+    main("submission_test_timm_1", 'TimmModel_BiTRes_X1_TestFive@14060', 'timmResNetTestEight_pretrained_X1')
