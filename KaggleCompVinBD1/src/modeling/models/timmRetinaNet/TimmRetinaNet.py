@@ -197,7 +197,7 @@ class TimmRetinaNet(BaseModel):
             # head_outputs = head_outputs.to(self.device[0])
             for k in head_outputs:
                 split_head_outputs[k] = list(head_outputs[k].split(num_anchors_per_level, dim=1))
-            split_anchors = [list(a.split(num_anchors_per_level)) for a in anchors]
+            split_anchors = [list(a.to(self.devices[0]).split(num_anchors_per_level)) for a in anchors]
 
             # compute the detections
             detections = self.m.postprocess_detections(split_head_outputs, split_anchors, images.image_sizes)
@@ -218,14 +218,15 @@ class TimmRetinaNet(BaseModel):
         #     'boxes': x['boxes'].to(config.devices[1]),
         # } for x in targets]
 
-        anchors = [x.to(config.devices[1]) for x in anchors]
+        anchors = [x.to(config.devices[0]) for x in anchors]
 
         for anchors_per_image, targets_per_image in zip(anchors, targets):
             if targets_per_image['boxes'].numel() == 0:
                 matched_idxs.append(torch.full((anchors_per_image.size(0),), -1, dtype=torch.int64))
                 continue
 
-            match_quality_matrix = box_ops.box_iou(targets_per_image['boxes'], anchors_per_image)
+            #TODO - find a way to not have to go to the cpu
+            match_quality_matrix = box_ops.box_iou(targets_per_image['boxes'].cpu(), anchors_per_image.cpu()).to(config.devices[0])
             matched_idxs.append(self.m.proposal_matcher(match_quality_matrix))
 
         losses = self.m.head.compute_loss(targets, head_outputs, anchors, matched_idxs)
@@ -273,7 +274,7 @@ class MultiClassRetinaHead(torch.nn.Module):
         x = [self.scalings[idx](x[idx]) for idx in range(len(x))]
 
         return {
-            'cls_logits': self.classification_head(x),
+            'cls_logits': self.classification_head(x).to(config.devices[1 if self.training else 0]),
             'bbox_regression': self.regression_head([f.to(config.devices[0]) for f in x])
         }
 
@@ -315,20 +316,22 @@ class RetinaNetClassificationHeadOHE(nn.Module):
 
         losses = []
 
-        cls_logits = head_outputs['cls_logits']
+        LOSS_ON_GPU = 1
+
+        cls_logits = head_outputs['cls_logits'].to(config.devices[LOSS_ON_GPU])
         #
         # cls_logits = [x.to(config.devices[1]) for x in cls_logits]
-        # targets = [{
-        #     'labels': x['labels'].to(config.devices[1])
-        # } for x in targets]
+        targets = [{
+            'labels': x['labels'].to(config.devices[LOSS_ON_GPU])
+        } for x in targets]
 
         for targets_per_image, cls_logits_per_image, matched_idxs_per_image in zip(targets, cls_logits, matched_idxs):
             # determine only the foreground
-            foreground_idxs_per_image = matched_idxs_per_image >= 0
-            num_foreground = foreground_idxs_per_image.sum()
+            foreground_idxs_per_image = (matched_idxs_per_image >= 0).to(config.devices[LOSS_ON_GPU])
+            num_foreground = foreground_idxs_per_image.sum().to(config.devices[LOSS_ON_GPU])
 
             # create the target classification
-            gt_classes_target = torch.zeros_like(cls_logits_per_image).float()
+            gt_classes_target = torch.zeros_like(cls_logits_per_image).float().to(config.devices[LOSS_ON_GPU])
             gt_classes_target[
                 foreground_idxs_per_image,
 
@@ -364,7 +367,7 @@ class RetinaNetClassificationHeadOHE(nn.Module):
 
             all_cls_logits.append(cls_logits)
 
-        return torch.cat(all_cls_logits, dim=1).to(config.devices[1])
+        return torch.cat(all_cls_logits, dim=1)
 
 
 
@@ -394,7 +397,7 @@ class CustomRetinaNetRegressionHead(RetinaNetRegressionHead):
 
             all_bbox_regression.append(bbox_regression)
 
-        return torch.cat(all_bbox_regression, dim=1).to(config.devices[1])
+        return torch.cat(all_bbox_regression, dim=1)
 
 if __name__=="__main__":
     from src.utils.hooks import CheckpointHook
@@ -413,7 +416,7 @@ if __name__=="__main__":
 
     # Not a random number of channels... this is borderline as much memory as I can run with current setup
     # TODO - find ways of optimizing memory so we can increase model size as well as channels per backbone layer
-    model = TimmRetinaNet(load_model='TimmModel_BiTRes_X1_TestFive@14060', backbone_channel_size=256, trainable_backbone_layers=5, raise_errors=True, convs_for_head=2, half=HALF)
+    model = TimmRetinaNet(load_model='TimmModel_BiTRes_X1_TestFive@14060', backbone_channel_size=256, trainable_backbone_layers=5, raise_errors=False, convs_for_head=3, half=HALF)
     if HALF:
         model = model.half()
 
@@ -458,7 +461,10 @@ if __name__=="__main__":
     task.register_hook(LogTrainingLoss(frequency=20))
     task.register_hook(StepTimer())
     task.register_hook(val_hook)
-    task.register_hook(train_acc_hook)
+
+    # Takes too long to iterate through all of them, if we want to test for overfitting-- load up from checkpoint
+    # task.register_hook(train_acc_hook)
+
     task.register_hook(checkpoint_hook)
 
     task.register_lrschedulers(scheduler2)
