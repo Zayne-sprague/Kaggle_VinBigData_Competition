@@ -24,7 +24,7 @@ class MulticlassDetectionTask(SimpleTrainer):
 
             dataloader.display_metrics(dataloader.get_metrics())
 
-            data = iter(DataLoader(dataloader, batch_size=config.batch_size, num_workers=4, collate_fn=self.collater))
+            data = iter(DataLoader(dataloader, batch_size=config.batch_size, num_workers=0, collate_fn=self.collater))
             total = (len(dataloader) // config.batch_size) + 1
 
             # idx 0 == correct, idx 1 == incorrect

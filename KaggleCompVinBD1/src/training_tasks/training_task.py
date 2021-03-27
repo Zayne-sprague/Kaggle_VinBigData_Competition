@@ -104,7 +104,7 @@ class SimpleTrainer(TrainingTask):
         batch_size = config.batch_size
 
         try:
-            if config.use_gpu and config.gpu_count >= 1:
+            if config.use_gpu and config.gpu_count >= 1 and config.distribute_across_gpus:
                 self.model = DistributedModel(model, device_ids=config.devices)
                 self.log.info("Distributing model across GPUs")
 
@@ -137,6 +137,8 @@ class SimpleTrainer(TrainingTask):
         self.optimizer: optim.Optimizer = optimizer
 
         self.backward_agg: BackpropAggregators = backward_agg
+
+        self.model.setup()
 
     def write_iteration_metrics(self, metrics: dict, lr: float, data_delta: float, inference_delta: float, back_prop_delta:float, optim_delta:float, step_delta: float, other_metrics: dict):
 

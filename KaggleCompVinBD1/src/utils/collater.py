@@ -3,7 +3,7 @@ import torch
 from typing import Optional
 
 from src.data_augs.batch_augmenter import BatchAugmenter
-
+from src import config
 
 class Collater:
 
@@ -28,9 +28,9 @@ class SimpleCollater(Collater):
             batch = {'image': image, 'label': label}
         elif 'annotations' in batch[0]:
             annotations = [{
-                'boxes': torch.tensor(x['annotations']['boxes']),
-                'labels': torch.tensor(x['annotations']['labels'], dtype=torch.float),
-                'category_ids': [] if 'category_ids' not in x['annotations'] else torch.tensor(x['annotations']['category_ids'])
+                'boxes': torch.tensor(x['annotations']['boxes']).to(config.devices[1]),
+                'labels': torch.tensor(x['annotations']['labels'], dtype=torch.float).to(config.devices[1]),
+                'category_ids': [] if 'category_ids' not in x['annotations'] else torch.tensor(x['annotations']['category_ids']).to(config.devices[1]),
             } for x in batch]
 
             batch = {'image': image, 'annotations': annotations}

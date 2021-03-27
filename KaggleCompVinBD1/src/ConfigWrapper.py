@@ -30,6 +30,10 @@ class ConfigWrapper:
         self.batch_size: int = int(os.environ.get("batch_size", 16))
         self.artificial_batch_size: int = int(os.environ.get("artificial_batch_size", 256))
 
+        if self.batch_size > self.artificial_batch_size:
+            log.warn(f"Artificial batch size was smaller than batch size, this is not possible ({self.batch_size} > {self.artificial_batch_size}), artificial batch size set to batch size")
+            self.artificial_batch_size = self.batch_size
+
         self.gpu_count: int = int(os.environ.get("GPU_COUNT", 0))
         self.one_gpu_for_validation: bool = strtobool(os.environ.get("HOLD_ONE_GPU_FOR_VALIDATION", False))
         self.use_gpu: bool = self.gpu_count > 0 and torch.cuda.is_available()
@@ -58,6 +62,8 @@ class ConfigWrapper:
             self.validation_device = self.devices[0]
         else:
             self.validation_device = self.devices[0]
+
+        self.distribute_across_gpus: bool = strtobool(os.environ.get("distribute_across_gpus", False))
 
         if self.use_gpu:
             torch.cuda.set_device(0)
