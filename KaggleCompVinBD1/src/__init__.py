@@ -73,6 +73,23 @@ CLASSES = [
 ]
 
 
+# class Classifications(Enum):
+#     AorticEnlargement = 0
+#     Atelectasis = 1
+#     Calcification = 2
+#     Cardiomegaly = 3
+#     Consolidation = 4
+#     ILD = 5
+#     Infiltration = 6
+#     LungOpacity = 7
+#     NoduleMass = 8
+#     OtherLesion = 9
+#     PleuralEffusion = 10
+#     PleuralThickening = 11
+#     Pneumothorax = 12
+#     PulmonaryFibrosis = 13
+#     Healthy = 14
+
 class Classifications(Enum):
     AorticEnlargement = 0
     Atelectasis = 1

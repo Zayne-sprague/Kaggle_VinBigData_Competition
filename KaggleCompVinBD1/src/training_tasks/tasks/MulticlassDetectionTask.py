@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 from map_boxes import mean_average_precision_for_boxes
 from tqdm import tqdm
 from tabulate import tabulate
+from mean_average_precision import MeanAveragePrecision
 
 from src import config, Classifications
 from src.modeling.models.model import BaseModel
@@ -56,10 +57,11 @@ class MulticlassDetectionTask(SimpleTrainer):
                     annotation = batch['annotations'][idx]
 
                     for p_idx in range(len(pred['boxes'])):
-                        det.append([f'{image_id}', pred['labels'][p_idx].item(), pred['scores'][p_idx].item(), pred['boxes'][p_idx][0].item() / 256.0, pred['boxes'][p_idx][1].item() / 256.0, pred['boxes'][p_idx][2].item() / 256.0, pred['boxes'][p_idx][3].item() / 256.0])
+                        det.append([f'{image_id}', pred['labels'][p_idx].item(), pred['scores'][p_idx].item(), pred['boxes'][p_idx][0].item() / 256.0, pred['boxes'][p_idx][2].item() / 256.0, pred['boxes'][p_idx][1].item() / 256.0, pred['boxes'][p_idx][3].item() / 256.0])
 
                     for a_idx in range(len(batch['annotations'][idx]['boxes'])):
-                        ann.append([f'{image_id}', torch.argmax(annotation['labels'][a_idx], 0).item(), annotation['boxes'][a_idx][0].item() / 256.0, annotation['boxes'][a_idx][1].item() / 256.0, annotation['boxes'][a_idx][2].item() / 256.0, annotation['boxes'][a_idx][3].item() / 256.0])
+                        # ann.append([f'{image_id}', torch.argmax(annotation['labels'][a_idx], 0).item(), annotation['boxes'][a_idx][0].item() / 256.0, annotation['boxes'][a_idx][1].item() / 256.0, annotation['boxes'][a_idx][2].item() / 256.0, annotation['boxes'][a_idx][3].item() / 256.0])
+                        ann.append([f'{image_id}', annotation['labels'][a_idx].item(), annotation['boxes'][a_idx][0].item() / 256.0, annotation['boxes'][a_idx][2].item() / 256.0, annotation['boxes'][a_idx][1].item() / 256.0, annotation['boxes'][a_idx][3].item() / 256.0])
 
                     image_id += 1
 
@@ -68,7 +70,7 @@ class MulticlassDetectionTask(SimpleTrainer):
             for idx in range(len(det)):
                 det[idx][1] = labels[det[idx][1]]
 
-            mean_ap, average_precisions = mean_average_precision_for_boxes(ann, det)
+            mean_ap, average_precisions = mean_average_precision_for_boxes(ann, det, iou_threshold=0.4)
 
 
             # table = []

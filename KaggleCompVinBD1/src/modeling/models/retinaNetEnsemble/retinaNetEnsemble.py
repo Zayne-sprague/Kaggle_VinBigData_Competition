@@ -23,7 +23,7 @@ class RetinaNetEnsemble(BaseModel):
     def __init__(self):
         super().__init__(model_name="RetinaNetEnsemble")
 
-        self.m = retinanet_resnet50_fpn(True, trainable_backbone_layers=5)
+        self.m = retinanet_resnet50_fpn(False, trainable_backbone_layers=5, num_classes=len(Classifications) - 1)
 
         # TRANSFER BACKBONE
         self.a = RetinaNet()
@@ -33,7 +33,7 @@ class RetinaNetEnsemble(BaseModel):
 
         # Not my favorite code-- but it will get the job done and is nicer than the duck patch.  It also allows
         # native transfer learning from the torchvision package.
-        self.m.head = MultiClassRetinaHead(self.m.backbone, self.m.head)
+        # self.m.head = MultiClassRetinaHead(self.m.backbone, self.m.head)
 
     def forward(self, data: dict) -> dict:
         x = data['image']
@@ -57,8 +57,18 @@ class RetinaNetEnsemble(BaseModel):
                 self.log.critical(f"ERROR in model forward: {e}")
                 return {'error': True}
 
-            loss = (x['classification'] + x['bbox_regression']).mean()
-            out = {'losses': {'loss': loss}, 'other_metrics': {'classifiction_loss': x['classification'].item(), 'bbox_regression_loss': x['bbox_regression'].item()}}
+            # loss = torch.stack([x['classification'], x['bbox_regression']]).mean()
+            loss = x['classification'] + x['bbox_regression']
+
+            # targets = torch.cat([x['category_ids'] for x in targets], 0).tolist()
+            # if Classifications.AorticEnlargement.value in targets:
+            #     self.log.info("Loss inc by x5")
+            #     loss *= 5
+
+
+
+
+            out = {'losses': {'loss': loss}, 'other_metrics': {'classifiction_loss': x['classification'], 'bbox_regression_loss': x['bbox_regression']}}
 
             return out
         else:
@@ -91,7 +101,7 @@ class MultiClassRetinaHead(torch.nn.Module):
 
 class RetinaNetClassificationHeadOHE(RetinaNetClassificationHead):
 
-    def compute_loss(self, targets, head_outputs, matched_idxs):
+    def old_compute_loss(self, targets, head_outputs, matched_idxs):
         def _sum(x):
             res = x[0]
             for i in x[1:]:
@@ -145,17 +155,25 @@ if __name__ == "__main__":
 
     train_dl, val_dl = dataloader.partition_data([0.75, 0.25], TrainingMulticlassDataset)
 
+    steps_per_epoch = len(train_dl) // config.artificial_batch_size
+
     batch_aug = BatchAugmenter()
-    batch_aug.compose([MixUpImageWithAnnotations(probability=0.75)])
-    task = MulticlassDetectionTask(model, train_dl, optim.Adam(model.parameters(), lr=0.0001), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
+    # batch_aug.compose([MixUpImageWithAnnotations(probability=0.5)])
+    task = MulticlassDetectionTask(model, train_dl, optim.Adam(model.parameters(), lr=0.00005), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
     task.max_iter = 25000
 
-    val_hook = PeriodicStepFuncHook(500, lambda: task.validation(val_dl, model))
-    checkpoint_hook = CheckpointHook(250, "retinaNetEnsemble_FullTestTwo", permanent_checkpoints=5000, keep_last_n_checkpoints=5)
+    validation_iteration = 500
+    val_hook = PeriodicStepFuncHook(validation_iteration, lambda: task.validation(val_dl, model))
+    train_acc_hook = PeriodicStepFuncHook(steps_per_epoch , lambda: task.validation(train_dl, model))
+
+    checkpoint_hook = CheckpointHook(validation_iteration, "retinaEnsemblePostBug_test4", permanent_checkpoints=validation_iteration, keep_last_n_checkpoints=5)
 
     task.register_hook(LogTrainingLoss(frequency=20))
     task.register_hook(StepTimer())
     task.register_hook(val_hook)
+
+    task.register_hook(train_acc_hook)
     task.register_hook(checkpoint_hook)
 
+    # task.validation(train_dl, model)
     task.begin_or_resume()

@@ -1,5 +1,9 @@
 First Kaggle Competition for VinBigData
 
+The competition is over, the final score of my model was 0.088.
+
+The best model was native torch visions retina net trained with Adam at a learning rate of 0.00005 and without mixup
+
 [COMPLETED] PreTraining Goals:
 - 
 
@@ -25,7 +29,7 @@ Training Goals
 
 ####_Current Kaggle Score 0.052_
 
-- [ ] Explore ways to enhance the model [ Currently Working on This ]
+- [x] Explore ways to enhance the model [ Currently Working on This ]
 
 
 Hypothesis:

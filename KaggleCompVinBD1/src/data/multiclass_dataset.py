@@ -27,8 +27,10 @@ class TrainingMulticlassDataset(TrainingDataSet):
             annotations = {'boxes': [], 'labels': [], 'category_ids': []}
             for adx, annotation in enumerate(record['annotations']):
                 category_id = annotation['category_id']
-                label = [0] * num_classes
-                label[category_id] = 1
+                # label = [0] * num_classes
+                # label[category_id] = 1
+                label = category_id
+
 
                 annotations['boxes'].append(annotation['bbox'])
                 annotations['labels'].append(label)

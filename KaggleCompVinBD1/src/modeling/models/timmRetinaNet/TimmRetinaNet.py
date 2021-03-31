@@ -319,6 +319,50 @@ class RetinaNetClassificationHeadOHE(nn.Module):
         LOSS_ON_GPU = 1
 
         cls_logits = head_outputs['cls_logits'].to(config.devices[LOSS_ON_GPU])
+        targets = [{
+            'labels': x['labels'].to(config.devices[LOSS_ON_GPU])
+        } for x in targets]
+
+        for targets_per_image, cls_logits_per_image, matched_idxs_per_image in zip(targets, cls_logits, matched_idxs):
+            # determine only the foreground
+            foreground_idxs_per_image = (matched_idxs_per_image >= 0).to(config.devices[LOSS_ON_GPU])
+            num_foreground = foreground_idxs_per_image.sum().to(config.devices[LOSS_ON_GPU])
+
+
+            # create the target classification
+            gt_classes_target = torch.zeros_like(cls_logits_per_image).to(config.devices[LOSS_ON_GPU])
+            gt_classes_target[
+                foreground_idxs_per_image,
+                targets_per_image['labels'][matched_idxs_per_image[foreground_idxs_per_image]]
+            ] = 1.0
+
+            # find indices for which anchors should be ignored
+            valid_idxs_per_image = matched_idxs_per_image != self.BETWEEN_THRESHOLDS
+
+            # compute the classification loss
+            losses.append(sigmoid_focal_loss(
+                cls_logits_per_image[valid_idxs_per_image],
+                gt_classes_target[valid_idxs_per_image],
+                reduction='sum',
+            ) / max(1, num_foreground))
+
+        loss = _sum(losses) / len(targets)
+
+        loss = loss.to(config.devices[0])
+        return loss
+
+    def OHE_compute_loss(self, targets, head_outputs, matched_idxs):
+        def _sum(x):
+            res = x[0]
+            for i in x[1:]:
+                res = res + i
+            return res
+
+        losses = []
+
+        LOSS_ON_GPU = 1
+
+        cls_logits = head_outputs['cls_logits'].to(config.devices[LOSS_ON_GPU])
         #
         # cls_logits = [x.to(config.devices[1]) for x in cls_logits]
         targets = [{
@@ -416,7 +460,7 @@ if __name__=="__main__":
 
     # Not a random number of channels... this is borderline as much memory as I can run with current setup
     # TODO - find ways of optimizing memory so we can increase model size as well as channels per backbone layer
-    model = TimmRetinaNet(load_model='TimmModel_BiTRes_X1_TestFive@14060', backbone_channel_size=256, trainable_backbone_layers=5, raise_errors=False, convs_for_head=3, half=HALF)
+    model = TimmRetinaNet(load_model='TimmModel_BiTRes_X1_TestFive@14060', backbone_channel_size=256, trainable_backbone_layers=1, raise_errors=False, convs_for_head=3, half=HALF)
     if HALF:
         model = model.half()
 
@@ -430,7 +474,7 @@ if __name__=="__main__":
 
     batch_aug = BatchAugmenter()
     # batch_aug.compose([MixUpImageWithAnnotations(probability=0.5)])
-    task = MulticlassDetectionTask(model, train_dl, optim.Adam(model.parameters(), lr=0.001), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
+    task = MulticlassDetectionTask(model, train_dl, optim.Adam(model.parameters(), lr=0.00001), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
 
     # Loss exploded with this optimizer
     # task = MulticlassDetectionTask(model, train_dl, optim.SGD(model.parameters(), lr=0.003, momentum=0.9), backward_agg=BackpropAggregators.MeanLosses, batch_augmenter=batch_aug)
@@ -438,13 +482,13 @@ if __name__=="__main__":
     task.max_iter = steps_per_epoch * 2500
 
     validation_iteration = 500
-    train_acc_hook = PeriodicStepFuncHook(validation_iteration * 24, lambda: task.validation(train_dl, model))
+    train_acc_hook = PeriodicStepFuncHook(validation_iteration , lambda: task.validation(train_dl, model))
     val_hook = PeriodicStepFuncHook(validation_iteration, lambda: task.validation(val_dl, model))
 
-    checkpoint_hook = CheckpointHook(validation_iteration, "timmResNetTest17_pretrained_X1", permanent_checkpoints=validation_iteration, keep_last_n_checkpoints=0)
+    checkpoint_hook = CheckpointHook(validation_iteration, "TimmModel_PostmAPBug_Test1", permanent_checkpoints=validation_iteration, keep_last_n_checkpoints=0)
 
     lr_steps = [1.0, 0.1, 0.01, 0.001, 0.0001]
-    steps = [ steps_per_epoch * 5, steps_per_epoch * 10, steps_per_epoch * 15]
+    steps = [ steps_per_epoch * 50, steps_per_epoch * 100, steps_per_epoch * 150]
 
     def lr_stepper(current_step):
         idx = 0
@@ -455,8 +499,8 @@ if __name__=="__main__":
         return lr_steps[-1]
 
 
-    scheduler = LRScheduler.LinearWarmup(0, steps_per_epoch * 2)
-    scheduler2 = LRScheduler.LambdaLR(0, None, lr_stepper)
+    # scheduler = LRScheduler.LinearWarmup(0, steps_per_epoch * 2)
+    # scheduler2 = LRScheduler.LambdaLR(0, None, lr_stepper)
 
     task.register_hook(LogTrainingLoss(frequency=20))
     task.register_hook(StepTimer())
@@ -467,8 +511,9 @@ if __name__=="__main__":
 
     task.register_hook(checkpoint_hook)
 
-    task.register_lrschedulers(scheduler2)
-    task.register_lrschedulers(scheduler)
+    # task.register_lrschedulers(scheduler2)
+    # task.register_lrschedulers(scheduler)
 
     task.log.info(f'Steps per epoch {steps_per_epoch}')
+
     task.begin_or_resume()
